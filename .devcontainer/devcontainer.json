@@ -1,17 +1,15 @@
 {
   "name": "Nexus AI Support - .NET 10",
-
   "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
-
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
       "version": "latest",
       "moby": true,
       "dockerDashComposeVersion": "v2"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {}
   },
-
   "customizations": {
     "vscode": {
       "extensions": [
@@ -23,7 +21,6 @@
         "editorconfig.editorconfig",
         "streetsidesoftware.code-spell-checker"
       ],
-
       "settings": {
         "dotnet.defaultSolution": "NexusSupport.sln",
         "editor.formatOnSave": true,
@@ -38,14 +35,12 @@
       }
     }
   },
-
   "forwardPorts": [
     5000,
     5001,
     5010,
     5011
   ],
-
   "portsAttributes": {
     "5000": {
       "label": "Ticket API HTTP",
@@ -66,7 +61,6 @@
       "protocol": "https"
     }
   },
-
   "containerEnv": {
     "TZ": "America/Costa_Rica",
     "ASPNETCORE_ENVIRONMENT": "Development",
@@ -74,12 +68,9 @@
     "DOTNET_NOLOGO": "1",
     "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false"
   },
-
   "remoteEnv": {
     "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
   },
-
   "postCreateCommand": "chmod +x .devcontainer/setup-git-privacy.sh && .devcontainer/setup-git-privacy.sh && (dotnet tool update --global dotnet-ef --version '10.*' || dotnet tool install --global dotnet-ef --version '10.*') && find . -type f \\( -name '*.sln' -o -name '*.slnx' \\) -print -quit | xargs -r dotnet restore && dotnet --info && docker --version && docker compose version",
-
   "remoteUser": "vscode"
 }
