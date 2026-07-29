@@ -11,9 +11,10 @@ public class NexusDbContext(DbContextOptions<NexusDbContext> options, ITenantPro
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(NexusDbContext).Assembly);
-
-        modelBuilder.Entity<MessageModel>().HasQueryFilter(m => m.TicketId == provider.TenantId);
+        
         modelBuilder.Entity<TenantModel>().HasQueryFilter(m => m.Id == provider.TenantId);
+        modelBuilder.Entity<MessageModel>().HasQueryFilter(m => m.TicketId == provider.TenantId);
         modelBuilder.Entity<TopicModel>().HasQueryFilter(m => m.TenantId == provider.TenantId);
+        modelBuilder.Entity<TicketModel>().HasQueryFilter(m => m.TenantId == provider.TenantId);
     }
 }
