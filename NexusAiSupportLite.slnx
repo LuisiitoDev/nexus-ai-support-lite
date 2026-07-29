@@ -1,2 +1,10 @@
 <Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Services/" />
+  <Folder Name="/src/Services/Ticket/">
+    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Api/NexusSupport.Ticket.Api.csproj" />
+    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Application/NexusSupport.Ticket.Application.csproj" />
+    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Domain/NexusSupport.Ticket.Domain.csproj" />
+    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Infraestructure/NexusSupport.Ticket.Infraestructure.csproj" />
+  </Folder>
 </Solution>
