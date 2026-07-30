@@ -1,0 +1,85 @@
+{
+  "name": "Nexus AI Support - .NET 10",
+
+  "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "ms-dotnettools.vscode-dotnet-runtime",
+        "ms-azuretools.vscode-docker",
+        "eamodio.gitlens",
+        "editorconfig.editorconfig",
+        "streetsidesoftware.code-spell-checker"
+      ],
+
+      "settings": {
+        "dotnet.defaultSolution": "NexusSupport.sln",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": "explicit"
+        },
+        "files.exclude": {
+          "**/bin": true,
+          "**/obj": true
+        },
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  },
+
+  "forwardPorts": [
+    5000,
+    5001,
+    5010,
+    5011
+  ],
+
+  "portsAttributes": {
+    "5000": {
+      "label": "Ticket API HTTP",
+      "onAutoForward": "notify"
+    },
+    "5001": {
+      "label": "Ticket API HTTPS",
+      "onAutoForward": "notify",
+      "protocol": "https"
+    },
+    "5010": {
+      "label": "Identity API HTTP",
+      "onAutoForward": "notify"
+    },
+    "5011": {
+      "label": "Identity API HTTPS",
+      "onAutoForward": "notify",
+      "protocol": "https"
+    }
+  },
+
+  "containerEnv": {
+    "TZ": "America/Costa_Rica",
+    "ASPNETCORE_ENVIRONMENT": "Development",
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+    "DOTNET_NOLOGO": "1",
+    "DOTNET_GENERATE_ASPNET_CERTIFICATE": "false"
+  },
+
+  "remoteEnv": {
+    "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
+  },
+
+  "postCreateCommand": "chmod +x .devcontainer/setup-git-privacy.sh && .devcontainer/setup-git-privacy.sh && (dotnet tool update --global dotnet-ef --version '10.*' || dotnet tool install --global dotnet-ef --version '10.*') && find . -type f \\( -name '*.sln' -o -name '*.slnx' \\) -print -quit | xargs -r dotnet restore && dotnet --info && docker --version && docker compose version",
+
+  "remoteUser": "vscode"
+}
