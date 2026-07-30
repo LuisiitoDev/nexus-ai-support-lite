@@ -4,12 +4,18 @@
   <Folder Name="/src/Services/Identity/">
     <Project Path="src/Services/Identity/NexusSupport.Identity.Api/NexusSupport.Identity.Api.csproj" />
     <Project Path="src/Services/Identity/NexusSupport.Identity.Domain/NexusSupport.Identity.Domain.csproj" />
-    <Project Path="src/Services/Identity/NexusSupport.Identity.Infraestructure/NexusSupport.Identity.Infraestructure.csproj" />
+    <Project Path="src/Services/Identity/NexusSupport.Identity.Infrastructure/NexusSupport.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/KnowledgeBase/">
+    <Project Path="src/Services/KnowledgeBase/NexusSupport.KnowledgeBase.Api/NexusSupport.KnowledgeBase.Api.csproj" />
+    <Project Path="src/Services/KnowledgeBase/NexusSupport.KnowledgeBase.Application/NexusSupport.KnowledgeBase.Application.csproj" />
+    <Project Path="src/Services/KnowledgeBase/NexusSupport.KnowledgeBase.Domain/NexusSupport.KnowledgeBase.Domain.csproj" />
+    <Project Path="src/Services/KnowledgeBase/NexusSupport.KnowledgeBase.Infrastructure/NexusSupport.KnowledgeBase.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Services/Ticket/">
     <Project Path="src/Services/Ticket/NexusSupport.Ticket.Api/NexusSupport.Ticket.Api.csproj" />
     <Project Path="src/Services/Ticket/NexusSupport.Ticket.Application/NexusSupport.Ticket.Application.csproj" />
     <Project Path="src/Services/Ticket/NexusSupport.Ticket.Domain/NexusSupport.Ticket.Domain.csproj" />
-    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Infraestructure/NexusSupport.Ticket.Infraestructure.csproj" />
+    <Project Path="src/Services/Ticket/NexusSupport.Ticket.Infrastructure/NexusSupport.Ticket.Infrastructure.csproj" />
   </Folder>
 </Solution>
