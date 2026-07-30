@@ -1,0 +1,12 @@
+namespace NexusSupport.Identity.Domain.Models
+{
+    public class RolModel
+    {
+        public int Id { get; set; }
+        public required string Name { get; set; }
+        public required string Code { get; set; }
+        public required string Description { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime CreateAt { get; set; }
+    }
+}
