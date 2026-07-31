@@ -48,5 +48,10 @@ internal sealed class TenantMembershipConfiguration : IEntityTypeConfiguration<T
             .WithMany()
             .HasForeignKey(t => t.UserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<TenantMembershipStatusModel>()
+            .WithMany()
+            .HasForeignKey(t => t.Status)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

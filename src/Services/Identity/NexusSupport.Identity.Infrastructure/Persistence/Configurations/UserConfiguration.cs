@@ -49,5 +49,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<UserModel>
         builder.Property(u => u.UpdateAt)
             .HasColumnName("UpdateAt")
             .HasDefaultValueSql("GETDATE()", "DF_User_UpdateAt");
+
+        builder.HasOne<UserStatusModel>()
+            .WithMany()
+            .HasForeignKey(u => u.Status)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

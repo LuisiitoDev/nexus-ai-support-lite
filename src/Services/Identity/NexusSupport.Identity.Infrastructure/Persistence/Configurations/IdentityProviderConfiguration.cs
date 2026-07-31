@@ -54,5 +54,10 @@ internal sealed class IdentityProviderConfiguration : IEntityTypeConfiguration<I
             .WithMany()
             .HasForeignKey(i => i.TenantId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<IdentityProviderTypeModel>()
+            .WithMany()
+            .HasForeignKey(i => i.ProviderType)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

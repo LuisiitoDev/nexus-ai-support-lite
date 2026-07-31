@@ -3,6 +3,7 @@
   <Folder Name="/src/Services/" />
   <Folder Name="/src/Services/Identity/">
     <Project Path="src/Services/Identity/NexusSupport.Identity.Api/NexusSupport.Identity.Api.csproj" />
+    <Project Path="src/Services/Identity/NexusSupport.Identity.Application/NexusSupport.Identity.Application.csproj" />
     <Project Path="src/Services/Identity/NexusSupport.Identity.Domain/NexusSupport.Identity.Domain.csproj" />
     <Project Path="src/Services/Identity/NexusSupport.Identity.Infrastructure/NexusSupport.Identity.Infrastructure.csproj" />
   </Folder>

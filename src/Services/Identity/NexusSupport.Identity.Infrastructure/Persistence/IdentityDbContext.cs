@@ -11,6 +11,9 @@ public class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : Db
     public DbSet<RolModel> Roles => Set<RolModel>();
     public DbSet<MembershipRoleModel> MembershipRoles => Set<MembershipRoleModel>();
     public DbSet<TenantMembershipModel> TenantMemberships => Set<TenantMembershipModel>();
+    public DbSet<UserStatusModel> UserStatuses => Set<UserStatusModel>();
+    public DbSet<TenantMembershipStatusModel> TenantMembershipStatuses => Set<TenantMembershipStatusModel>();
+    public DbSet<IdentityProviderTypeModel> IdentityProviderTypes => Set<IdentityProviderTypeModel>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
