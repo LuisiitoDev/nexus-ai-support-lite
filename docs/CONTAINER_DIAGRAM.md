@@ -2,20 +2,20 @@
 
 ## Container Diagram
 
-**Status:** Discovery validated  
-**Version:** 1.1  
+**Status:** Architecture synchronized  
+**Version:** 2.0  
 **Date:** August 1, 2026  
-**Related documents:** `PRODUCT.md`, `PERSONAS.md`, `USER_FLOWS.md`, `SYSTEM_CONTEXT.md`
+**Related documents:** `PRODUCT.md`, `PERSONAS.md`, `USER_FLOWS.md`, `SYSTEM_CONTEXT.md`, `ADR-001-MICROSERVICES-ARCHITECTURE.md`, `ADR-002-MULTITENANT-IDENTITY.md`, `ADR-003-PERSISTENCE-STRATEGY.md`, `ADR-004-API-GATEWAY-WITH-YARP.md`
 
 ## 1. Purpose
 
-This document describes the principal executable applications, services, and data stores inside the Nexus Support Lite boundary for the MVP. It defines their responsibilities and communication paths without selecting specific frameworks, database engines, messaging products, cloud services, or deployment topology.
+This document describes the C4 level 2 containers inside the Nexus Support Lite boundary for the MVP. It defines their responsibilities, technologies already selected by ADRs, data ownership, trust boundaries, and principal communication paths.
 
-Detailed infrastructure belongs in `DEPLOYMENT_DIAGRAM.md`. Business ownership and service boundaries should be refined in `DOMAIN_BOUNDARIES.md` and supported by the relevant Architecture Decision Records.
+Detailed Azure resource topology belongs in `DEPLOYMENT_DIAGRAM.md`. Business ownership and service boundaries should be refined in `DOMAIN_BOUNDARIES.md`.
 
 ## 2. Architectural Shape
 
-Nexus Support Lite uses an independently deployed web frontend and API backend organized around microservices. The frontend accesses backend capabilities through a single API Gateway.
+Nexus Support Lite uses an independently deployed web frontend and backend microservices. The frontend reaches backend capabilities exclusively through a single API Gateway.
 
 The MVP contains three business services:
 
@@ -23,184 +23,193 @@ The MVP contains three business services:
 - **Ticket Service**
 - **Notification Service**
 
-Each service owns its data store and must not read or write another service's database directly. For the MVP, services communicate synchronously through HTTP. Asynchronous messaging remains a future evolution that must be justified by reliability, scale, or fan-out requirements.
+It also contains a **Notification Retry Function** belonging to the Tickets domain. It processes durable pending deliveries without introducing Azure Service Bus or another message broker.
 
-The architecture anticipates a future **Knowledge Base Service**, but that service is outside the MVP and is not an implemented container in the current design.
+Each domain owns its data. No service may read or write data owned by another domain. Identity and Tickets use separate Azure SQL databases, while Notifications uses Azure Cosmos DB. Communication between Tickets and Notifications is synchronous HTTP after the ticket transaction is committed, with a durable retry mechanism for failures.
+
+Knowledge Base, AI capabilities, Azure Service Bus, and other message brokers are outside the MVP.
 
 ## 3. MVP Containers
 
-| Container | Responsibility | Owns data | Main interactions |
+| Container | Technology / storage | Responsibility | Main interactions |
 | --- | --- | --- | --- |
-| Web Frontend | Provides the responsive browser interface for Requesters, Agents, Organization Administrators, and Nexus Global Administrators. | No authoritative business data. | Uses the API Gateway; initiates the Entra ID sign-in experience. |
-| API Gateway | Provides the single backend entry point, routes requests to the appropriate service, and preserves authenticated tenant and user context. | No business data. | Receives frontend requests and routes them to Identity, Ticket, or Notification services. |
-| Identity Service | Manages organizations, identity-provider configuration, local users, roles, account state, and tenant membership. Delegates initial authentication to Microsoft Entra ID and provisions first-time users as Requesters. | Organizations, IdP configuration, users, roles, and identity-related tenant data. | Communicates with Entra ID; serves identity and authorization capabilities through the gateway; may provide validated identity or authorization context to other services. |
-| Ticket Service | Owns topics, incidents, assignments, priorities, comments, attachment references, resolution data, and incident history. Enforces the incident workflow and atomic incident assignment. | All ticket-domain operational data. | Serves ticket operations through the gateway and requests notification creation from the Notification Service over HTTP. |
-| Notification Service | Creates, stores, lists, and updates internal notifications. Owns notification history and each notification's read/unread state. | Notifications, recipients, delivery state, and read/unread state. | Serves notification queries and commands through the gateway; receives notification-creation requests from the Ticket Service over HTTP. |
-| Identity Database | Persists data owned exclusively by the Identity Service. | Identity-domain data. | Accessible only by the Identity Service. |
-| Ticket Database | Persists data owned exclusively by the Ticket Service. | Ticket-domain data. | Accessible only by the Ticket Service. |
-| Notification Database | Persists data owned exclusively by the Notification Service. | Notification-domain data. | Accessible only by the Notification Service. |
+| Web Frontend | Web application; framework TBD | Provides the responsive browser interface and initiates Microsoft Entra ID sign-in. | Calls only the API Gateway and redirects users to Entra ID for authentication. |
+| API Gateway | ASP.NET Core with YARP on Azure Container Apps | Single public backend entry point. Validates Entra ID tokens, resolves the organization exclusively from the validated `tid` claim, removes client-supplied identity headers, obtains local account state and roles, applies tenant rate limiting, and routes requests using static versioned configuration. | Calls Identity, Tickets, and Notifications through internal ingress. |
+| Identity Service | Internal microservice on Azure Container Apps | Manages organizations, users, local account state, roles, and first-login provisioning as Requester. Provides account state and roles to the Gateway. | Receives trusted internal calls from the Gateway and accesses only Identity Database. |
+| Ticket Service | Internal microservice on Azure Container Apps | Owns topics, incidents, assignments, priorities, comments, attachment references, resolution data, and incident history. Enforces workflow and authorization rules. | Receives trusted internal calls from the Gateway, accesses Ticket Database, and requests notification creation over HTTP after committing ticket changes. |
+| Notification Service | Internal microservice on Azure Container Apps | Creates, stores, lists, and updates persistent in-app notifications, including read/unread state and history. Uses operation identifiers to make creation idempotent. | Receives trusted internal calls from the Gateway and notification-creation calls from the Tickets domain; accesses only Notification Database. |
+| Notification Retry Function | Azure Function with configurable one-minute Timer Trigger | Finds pending notification deliveries owned by the Tickets domain and retries them using Polly policies. Uses its own managed identity to access Ticket Database. | Reads and updates pending deliveries in Ticket Database and calls Notification Service. Authentication for this latter call remains TBD. |
+| Identity Database | Azure SQL Database | Stores organizations, users, roles, account state, and identity-related tenant data. Shared across organizations with logical isolation by `TenantId`. | Accessible only by Identity Service through its own managed identity. |
+| Ticket Database | Azure SQL Database | Stores ticket-domain data and durable pending notification deliveries. Shared across organizations with logical isolation by `TenantId`. | Accessible by Ticket Service and Notification Retry Function, both components of the Tickets domain, through distinct managed identities and least-privilege permissions. |
+| Notification Database | Azure Cosmos DB, Session consistency | Stores persistent notification history and read/unread state. Uses hierarchical partitioning by `TenantId` and `UserId`. | Accessible only by Notification Service through its own managed identity. |
+
+The Gateway implementation does not constrain downstream services to .NET. A future service may use Python or another runtime if it preserves the documented HTTP contracts, security controls, and ownership boundaries.
 
 ## 4. Container Diagram
 
 ```mermaid
 flowchart TB
     User["Organization user or Nexus administrator"]
-    Frontend["Web Frontend"]
-    Gateway["API Gateway"]
     Entra["Microsoft Entra ID"]
 
     subgraph Nexus["Nexus Support Lite — MVP"]
-        Frontend
-        Gateway
+        Frontend["Web Frontend"]
+        Gateway["API Gateway<br/>ASP.NET Core + YARP"]
 
-        subgraph Services["Business services"]
+        subgraph Services["Internal application containers"]
             Identity["Identity Service"]
             Tickets["Ticket Service"]
             Notifications["Notification Service"]
+            Retry["Notification Retry Function<br/>Timer Trigger"]
         end
 
-        subgraph Data["Service-owned data stores"]
-            IdentityDB[("Identity Database")]
-            TicketDB[("Ticket Database")]
-            NotificationDB[("Notification Database")]
+        subgraph Data["Domain-owned data stores"]
+            IdentityDB[("Identity Azure SQL")]
+            TicketDB[("Ticket Azure SQL")]
+            NotificationDB[("Notification Cosmos DB")]
         end
     end
 
-    User -->|"Uses in browser"| Frontend
-    Frontend -->|"API requests"| Gateway
-    Frontend -->|"Starts sign-in"| Entra
-    Gateway -->|"Identity and access"| Identity
-    Gateway -->|"Incident operations"| Tickets
-    Gateway -->|"Notification operations"| Notifications
-    Identity -->|"Authenticate and synchronize profile"| Entra
+    User -->|"Uses"| Frontend
+    Frontend <-->|"Organizational sign-in"| Entra
+    Frontend -->|"API + access token"| Gateway
+    Gateway -->|"Validates token"| Entra
+    Gateway -->|"Account state and roles"| Identity
+    Gateway -->|"Trusted internal headers"| Tickets
+    Gateway -->|"Trusted internal headers"| Notifications
     Identity --> IdentityDB
     Tickets --> TicketDB
     Notifications --> NotificationDB
-    Tickets -->|"Create notification; HTTP with controlled retries"| Notifications
-    Tickets <-->|"Synchronous HTTP when required"| Identity
-    Notifications <-->|"Synchronous HTTP when required"| Identity
+    Tickets -->|"HTTP after commit"| Notifications
+    Retry -->|"Polls pending deliveries"| TicketDB
+    Retry -->|"Idempotent retry; auth TBD"| Notifications
 ```
 
-The synchronous links show permitted interaction, not a requirement that every request call the Identity Service. Authentication and authorization details, token propagation, and policy evaluation remain architecture decisions to be documented separately.
+## 5. Identity and Trust Flow
 
-## 5. Principal Interaction Paths
+1. The Web Frontend uses the frontend multitenant App Registration to initiate sign-in for organizational Microsoft Entra ID accounts.
+2. During organization onboarding, an administrator grants consent to the frontend and API multitenant App Registrations.
+3. The frontend sends the access token to the API Gateway.
+4. The Gateway validates signature, issuer, audience, and expiration.
+5. The organization is resolved exclusively from the validated `tid` claim. A tenant identifier supplied separately by the frontend is never trusted.
+6. The Gateway rejects tenants that are not registered and enabled in Nexus.
+7. The Gateway queries Identity for the local user, account state, and Nexus roles. On first login, Identity creates the user as a Requester using validated token data.
+8. The Gateway caches the account and role result for five minutes. Role or account-state changes invalidate the corresponding cache entry immediately.
+9. Before forwarding, the Gateway removes equivalent identity headers supplied by the client and creates trusted internal headers containing the validated user, `TenantId`, and roles.
+10. Each internal microservice validates its own distinct shared internal key and applies functional authorization using the trusted identity context.
+11. Internal ingress and network isolation prevent direct public access to microservices.
 
-### 5.1 Authentication and First Access
+The Gateway is the only component that validates end-user Entra ID access tokens. Internal services do not duplicate that validation.
 
-1. The user starts sign-in from the Web Frontend.
-2. Microsoft Entra ID authenticates the user for the organization's registered tenant.
-3. The authenticated request reaches Nexus through the API Gateway.
-4. The Identity Service resolves the organization from the tenant ID, validates that the organization and local account are enabled, and synchronizes the user's name and email.
-5. On first access, the Identity Service creates the local user with the Requester role.
-6. The frontend receives only the capabilities and data permitted for the active tenant and role.
+## 6. Ticket and Notification Flow
 
-### 5.2 Ticket Operations
+1. The frontend sends a ticket command through the Gateway.
+2. The Gateway authenticates the request and routes it to Ticket Service with trusted identity headers and the Ticket Service's internal key.
+3. Ticket Service applies tenant isolation, role authorization, and workflow rules.
+4. Ticket Service commits the ticket transaction to Ticket Database.
+5. Only after the commit succeeds, Ticket Service calls Notification Service over internal HTTP.
+6. The request includes a unique operation identifier. Notification Service uses it to prevent duplicate notifications.
+7. Immediate calls use Polly with controlled timeout, exponential backoff retries, a configurable maximum attempt count, and circuit breaker.
+8. A notification failure never reverses the committed ticket operation.
+9. If immediate delivery still fails, Ticket Service stores a durable pending delivery in Ticket Database with the operation identifier, attempt count, next attempt time, and last error.
+10. The Notification Retry Function runs initially every minute, with configurable frequency, and claims eligible deliveries safely.
+11. The Function retries delivery using Polly. When the configurable maximum is exhausted, the delivery becomes `Failed` for manual review.
+12. Notification Service stores successful notifications in Cosmos DB. Marking a notification as read changes its state but does not delete it.
 
-1. The Web Frontend sends incident commands and queries through the API Gateway.
-2. The gateway routes them to the Ticket Service.
-3. The Ticket Service validates the tenant, role, topic, assignment, and workflow rules required by the operation.
-4. The Ticket Service reads or changes only its own database.
-5. Relevant changes trigger an HTTP request to the Notification Service when an in-app notification is required.
+The mechanism used by the Retry Function to authenticate its HTTP call to Notification Service remains **TBD**. It must be decided before implementation and must not be inferred from the Gateway's end-user flow.
 
-### 5.3 Internal Notifications
+## 7. Communication and Security Rules
 
-1. After committing the ticket change, the Ticket Service requests notification creation from the Notification Service through HTTP.
-2. If the request fails, the Ticket Service applies controlled retries and records the final failure.
-3. The Notification Service determines the recipients according to the event and validated product rules.
-4. It creates persistent internal notifications in its own database.
-5. Users retrieve and update their notifications through the API Gateway.
-6. Marking a notification as read or unread is handled exclusively by the Notification Service; an unread notification contributes to the pending count shown by the bell.
-7. A notification failure never rolls back or corrupts the already committed ticket change; the MVP accepts that a notification may be delayed or, after retries are exhausted, not be created.
+- The Web Frontend reaches backend services only through the API Gateway.
+- YARP routes are static, versioned in the repository, and use stable internal Azure Container Apps names for the MVP.
+- Dynamic service discovery is outside the MVP.
+- The Gateway applies configurable rate limiting by `TenantId`; per-user rate limiting is outside the MVP.
+- Business microservices have internal ingress and are not publicly reachable.
+- The Gateway uses a distinct shared internal key for each microservice. These values are stored in GitHub Actions Secrets and injected during deployment.
+- Client-supplied identity headers are removed before the Gateway adds trusted internal identity headers.
+- Each microservice performs its own functional authorization.
+- No domain reads or writes another domain's database.
+- Ticket-to-notification communication uses HTTP; Azure Service Bus and other brokers are not part of the MVP.
+- The Retry Function has its own managed identity and least-privilege access to Ticket Database.
+- Identity, Ticket, and Notification services each use their own managed identity for their respective data store.
+- Database access uses Microsoft Entra ID rather than stored database usernames or passwords.
+- Azure SQL migrations for Identity and Tickets run as controlled CI/CD pipeline steps and never automatically at application startup.
 
-The exact event catalog and recipient resolution rules should be specified separately and must remain consistent with `USER_FLOWS.md`.
-
-## 6. Communication Rules
-
-- The frontend communicates with backend services only through the API Gateway.
-- A service never accesses another service's database.
-- HTTP is used when a request requires an immediate response.
-- Ticket-to-notification communication uses HTTP with controlled retries in the MVP.
-- Every request, command, query, and event must carry or resolve sufficient tenant context to preserve organization isolation.
-- Authorization must be enforced by backend services and cannot depend solely on frontend visibility.
-- Failure of the Notification Service must not corrupt a successfully committed ticket operation; retry limits and operational recovery remain pending architectural decisions.
-
-## 7. Data Ownership
+## 8. Data Ownership
 
 | Data | Authoritative owner |
 | --- | --- |
 | Organizations and organization status | Identity Service |
-| Identity-provider configuration | Identity Service |
-| Users, local account status, and roles | Identity Service |
+| Users, local account status, and Nexus roles | Identity Service |
 | Topics and responsible-agent relationships | Ticket Service |
 | Incidents, assignments, comments, priorities, resolutions, and history | Ticket Service |
 | Attachment metadata or references associated with incidents | Ticket Service |
+| Pending notification deliveries and retry state | Tickets domain |
 | Notifications, recipients, history, and read/unread state | Notification Service |
 
-Physical attachment storage is not selected in this document. The Ticket Service remains the business owner of incident attachment references and lifecycle rules even if file bytes are later placed in specialized object storage.
+The Notification Retry Function is part of the Tickets domain; its access to Ticket Database does not cross a domain boundary. Physical attachment storage remains TBD, while Ticket Service remains the business owner of attachment references and lifecycle rules.
 
-## 8. Tenant and Trust Boundaries
+## 9. Tenant and Data Isolation
 
-- The Identity Service establishes and validates the organization associated with the authenticated tenant ID.
-- The API Gateway propagates authenticated user and tenant context but does not replace authorization inside each service.
-- Each service must enforce tenant isolation for its own operations and data.
-- Service-owned databases must prevent cross-tenant data exposure even when multiple tenants share physical infrastructure.
-- Inter-service requests must include trustworthy tenant and user context, and the receiving service must enforce it before processing or persisting data.
-- The Nexus Global Administrator's identity capabilities must remain separated from tenant operational access, as defined in `SYSTEM_CONTEXT.md`.
+- Identity and Tickets each use one database shared by all organizations, with logical isolation through `TenantId`.
+- Identity and Ticket databases remain physically separate even if they initially share the same logical Azure SQL server.
+- Notification data uses a Cosmos DB hierarchical partition key of `TenantId` followed by `UserId`.
+- Cosmos DB uses Session consistency.
+- Every business query and mutation must be scoped to the trusted `TenantId`.
+- Each service owns and enforces isolation for its data.
+- Managed identities receive access only to the data required by their container and domain.
+- The Nexus Global Administrator boundary defined in `SYSTEM_CONTEXT.md` remains separate from tenant operational access.
 
-## 9. MVP Scope and Future Containers
+## 10. MVP Scope
 
-### Included in the MVP
+### Included
 
 - Web Frontend.
-- API Gateway.
-- Identity Service and its database.
-- Ticket Service and its database.
-- Notification Service and its database.
-- HTTP communication from Tickets to Notifications with controlled retries and failure logging.
-- Microsoft Entra ID integration.
+- ASP.NET Core/YARP API Gateway.
+- Identity, Ticket, and Notification services.
+- Identity and Ticket Azure SQL databases.
+- Notification Azure Cosmos DB.
+- HTTP delivery from Tickets to Notifications.
+- Idempotency, Polly retries, exponential backoff, circuit breaker, and durable pending deliveries.
+- Timer-triggered Notification Retry Function.
+- Microsoft Entra ID integration and managed identities.
+- Tenant-level rate limiting.
 
-### Prepared but not included
+### Explicitly outside the MVP
 
-The architecture should permit a future Knowledge Base Service with its own responsibility and data ownership. No knowledge-base functionality, API, database, event contract, or user flow is part of the MVP. It must not be implemented merely because the architecture anticipates it.
+- Knowledge Base Service.
+- AI service or AI provider integration.
+- Azure Service Bus or any other message broker.
+- Dynamic service discovery.
+- Per-user rate limiting.
+- Automatic database migration at application startup.
 
-## 10. Unresolved Architecture Decisions
+## 11. Remaining Decisions
 
-This document intentionally does not decide:
+The following decisions remain open and must not be inferred by implementation:
 
-- Frontend framework or hosting technology.
-- Backend framework and runtime.
-- API Gateway product or implementation pattern.
-- Database engines or whether different services use different engines.
-- Exact HTTP retry limits, timeout policy, and operational alert thresholds.
-- Criteria for adopting asynchronous messaging in a future phase.
-- Authentication protocol, token format, service-to-service identity, or authorization policy implementation.
-- How role or topic changes are propagated immediately across active sessions.
-- Attachment byte storage and malware-scanning mechanism.
-- AI provider, model, integration container, or deployment boundary.
-- Observability, secrets management, caching, or deployment topology.
-
-These decisions should be captured in `DEPLOYMENT_DIAGRAM.md`, `DOMAIN_BOUNDARIES.md`, or focused ADRs as appropriate.
-
-## 11. Required Synchronization with Existing Documentation
-
-Before implementation, the documentation set should be synchronized so that:
-
-- `PRODUCT.md` reflects the current Entra ID tenant-ID access flow established in `SYSTEM_CONTEXT.md`.
-- Notification behavior follows the latest rules in `USER_FLOWS.md`, including cases where topic transfer does not notify destination-topic agents.
-- Identity, ticket, and notification ownership introduced here is reflected consistently in later domain and deployment documents.
+- Frontend framework and hosting technology.
+- Runtime/language choices for individual downstream services where not already selected.
+- Authentication mechanism for Notification Retry Function calls to Notification Service.
+- Exact timeout, retry, circuit-breaker, and rate-limit values; these will be configurable and finalized through load and resilience testing.
+- Physical attachment storage and malware scanning.
+- Observability, alerting, and detailed deployment topology.
 
 ## 12. Container-Level Acceptance Criteria
 
-1. The Web Frontend reaches backend capabilities through one API Gateway entry point.
-2. Identity, Ticket, and Notification services persist data only in their respective stores.
-3. No service reads or writes another service's database directly.
-4. The Identity Service delegates initial authentication to Microsoft Entra ID while retaining local organization, user, role, and account-state responsibilities.
-5. A committed ticket operation remains successful when notification delivery fails.
-6. The Notification Service creates and retains internal notifications requested by the Ticket Service and owns their read/unread state.
-7. A notification marked unread contributes again to the user's pending-notification count.
-8. Tenant context is enforced at the gateway, service, database-access, and event-processing boundaries.
-9. Knowledge Base functionality is absent from the MVP implementation.
+1. The Web Frontend reaches backend capabilities through one public API Gateway.
+2. The Gateway uses ASP.NET Core with YARP, validates end-user tokens, derives the tenant only from `tid`, and uses static versioned routes.
+3. Business microservices remain private and accept trusted identity context only from authorized internal callers.
+4. Identity, Ticket, and Notification services enforce their own functional authorization and tenant isolation.
+5. Identity and Tickets persist data in separate Azure SQL databases; Notifications persists data in Cosmos DB partitioned by tenant and user.
+6. A committed ticket operation remains successful when notification delivery fails.
+7. Notification creation is idempotent by operation identifier.
+8. Failed notification deliveries survive container restarts and are retried by the Timer-triggered Azure Function.
+9. Notification history remains persistent after notifications are marked as read.
+10. No service crosses another domain's data boundary.
+11. Knowledge Base, AI capabilities, Service Bus, and other brokers are absent from the MVP.
+12. The Retry Function-to-Notification authentication mechanism remains visibly unresolved until a dedicated decision is made.
 
 ## 13. Next Architecture Document
 
-The next recommended document is `DEPLOYMENT_DIAGRAM.md`. It should map the validated containers to runtime infrastructure, network boundaries, environments, data services, and operational dependencies without changing their responsibilities.
+The next document is `DEPLOYMENT_DIAGRAM.md`. It should map these validated containers to Azure resources, network boundaries, environments, managed identities, data services, and operational dependencies without changing their responsibilities.
