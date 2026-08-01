@@ -2,462 +2,341 @@
 
 ## User Flows
 
-**Status:** Discovery validated  
-**Version:** 1.0  
-**Date:** July 31, 2026  
-**Related specification:** `PRODUCT.md`
+**Status:** Architecture synchronized  
+**Version:** 2.0  
+**Date:** August 1, 2026  
+**Related documents:** `PRODUCT.md`, `PERSONAS.md`, `SYSTEM_CONTEXT.md`, `CONTAINER_DIAGRAM.md`, `DOMAIN_BOUNDARIES.md`
 
-## 1. Purpose and Decision Precedence
+## 1. Purpose
 
-This document defines the validated user journeys, system responses, alternative paths, permission boundaries, and audit behavior for Nexus Support Lite.
+This document defines the validated journeys, system responses, permission boundaries, state transitions, notifications, and audit behavior for the Nexus Support Lite MVP.
 
-Where a rule in this document differs from an earlier statement in `PRODUCT.md`, the rule captured here represents the latest validated Discovery decision and takes precedence for user-flow design. The product specification should be synchronized before implementation.
-
-## 2. Actors
+## 2. Actors and Global Rules
 
 - **Requester:** creates and follows their own incidents.
-- **Agent:** handles incidents belonging to topics for which they are responsible.
-- **Organization Administrator:** manages users, roles, topics, reporting, and audit data within one organization; incident access is read-only.
-- **Nexus Global Administrator:** manages organizations and identity configuration without access to tenant operational data.
+- **Agent:** handles incidents for topics where they are responsible.
+- **Organization Administrator:** manages users, roles, topics, reports, and audit within one organization; incident access is read-only.
+- **Nexus Global Administrator:** manages organization registration and identity configuration without tenant operational access.
 
-A person may have more than one role. The active role determines the interface and available actions.
+A person may hold multiple roles. The active role controls navigation and actions.
 
-## 3. Global Rules
+Global invariants:
 
-- All data and actions are isolated by organization.
-- The supported incident lifecycle is **New → In Progress → Closed**.
-- A **New** incident has a topic and no individual assignee.
-- An **In Progress** incident must always have an assignee. Nexus must never retain an incident as **In Progress and Unassigned**.
-- A **Closed** incident contains a required resolution.
-- Topic, role, assignment, and tenant permissions are evaluated for every operation.
-- Relevant actions are recorded with actor, date, and time.
-- All incident comments are visible to the requester; internal notes are not included in the first version.
+- Data and actions are isolated by organization.
+- Tenant context comes exclusively from the validated Entra `tid` claim.
+- Lifecycle is **New → In Progress → Closed**.
+- New incidents have a topic and no assignee.
+- In Progress incidents have exactly one assignee.
+- Closed incidents have a required resolution.
+- Topic, role, assignment, account state, and tenant permissions are evaluated for every operation.
+- Relevant actions record actor or system origin, time, and changed values.
+- Comments are visible to the requester; internal notes are outside the MVP.
 
-## 4. Access and Active Role
+## 3. Access and Active Role
 
-### 4.1 Sign In
+### 3.1 Organizational Sign-in
 
-1. The person enters their email address.
-2. Nexus resolves the organizations associated with the email and their identity providers.
-3. If only one organization is available, Nexus continues with it.
-4. If several organizations are available, Nexus asks the person to select one.
-5. Nexus redirects the person to the selected organization's identity provider.
-6. After successful authentication, Nexus creates a first-time account with the **Requester** role when needed.
-7. Nexus opens the interface for the active role.
+1. The user selects Microsoft organizational sign-in.
+2. The frontend redirects to Microsoft Entra ID through the shared multitenant frontend App Registration.
+3. After authentication, the frontend requests an access token for the shared API App Registration.
+4. The frontend sends the token to the API Gateway without a separately supplied tenant.
+5. The Gateway validates signature, issuer, audience, and expiration.
+6. Nexus resolves the organization exclusively from `tid`.
+7. If the tenant is unknown or disabled, Nexus denies access without exposing another organization's information.
+8. Identity resolves the local user, account state, and Nexus roles.
+9. On first access, Identity creates the local user with the **Requester** role from validated token claims.
+10. Nexus opens the interface for the active role.
 
-### 4.2 Choosing and Changing Roles
+### 3.2 Choosing and Changing Roles
 
-1. If the person has one role, Nexus activates it directly.
-2. If the person has several roles, they may change the active role from the application.
-3. Each role displays only its permitted navigation and data.
+- A single role activates directly.
+- A user with several roles may change the active role.
+- Each role exposes only permitted navigation, actions, and data.
 
-### 4.3 Role Changes During an Active Session
+### 3.3 Changes During an Active Session
 
-- Role and topic changes apply immediately, even during an active session.
-- If the active role is removed, Nexus automatically selects the next available role using this fixed hierarchy:
-  1. **Organization Administrator**
-  2. **Agent**
-  3. **Requester**
-- Nexus does not show the role-selection screen for this automatic transition.
-- If all roles are removed, Nexus immediately closes all active sessions for the user.
-- If an account is deactivated, Nexus immediately closes all of that user's active sessions.
+Role and account changes apply immediately through Gateway cache invalidation.
 
-## 5. Requester Flows
+If the active role is removed, Nexus selects the next available role in this order:
 
-### 5.1 Requester Home
+1. Organization Administrator
+2. Agent
+3. Requester
 
-The requester can view their incidents and distinguish them by status, priority, topic, and current assignee. Available filters follow the product specification and the user's tenant permissions.
+No selection screen is shown for this automatic transition. If all roles are removed or the account is deactivated, Nexus closes active sessions immediately.
 
-### 5.2 Create an Incident
+## 4. Requester Flows
 
-1. The requester selects **Create incident**.
-2. Nexus asks for a subject and free-text description.
-3. The requester may add permitted attachments.
-4. AI analyzes the subject and description and suggests a topic and priority.
-5. Nexus clearly presents both values as suggestions.
-6. The requester may accept or freely change either suggestion without justification.
-7. The requester submits the incident.
-8. Nexus validates the required fields, active topic, attachment constraints, and tenant context.
-9. Nexus creates the incident as **New** and **Unassigned**.
-10. The incident appears in the shared queue of agents responsible for the selected topic.
-11. All agents responsible for that topic receive a notification in the Nexus bell.
-12. Nexus opens the created incident or presents a successful creation result from which it can be opened.
+### 4.1 Home and Incident Detail
 
-#### AI unavailable
+The requester sees only their incidents and may distinguish them by status, priority, topic, and assignee. Detail includes number, subject, description, status, priority, topic, **Assigned to**, comments, permitted attachments, visible history, and closure information.
 
-1. Nexus informs the requester that suggestions are unavailable.
-2. The requester selects the topic and priority manually.
-3. Incident creation continues without interruption.
+### 4.2 Create Incident
 
-#### Invalid or inactive topic
+1. Select **Create incident**.
+2. Enter subject and description.
+3. Select an active topic and a priority: Low, Medium, High, or Critical.
+4. Optionally add permitted attachments.
+5. Submit.
+6. Nexus validates fields, topic status, attachment constraints, authorization, and trusted tenant context.
+7. Nexus creates the incident as **New** and unassigned.
+8. It appears in the shared queue of responsible agents.
+9. Those agents receive an in-app notification.
+10. Nexus opens the incident or presents a success result from which it can be opened.
 
-- Nexus prevents submission and asks the requester to choose an active topic.
+Knowledge Base and AI suggestions are not part of this flow. Topic and priority are selected manually.
 
-### 5.3 View an Incident
+An inactive or invalid topic blocks submission and requires another active topic.
 
-The requester can view:
+### 4.3 Comment or Attachment
 
-- Incident number, subject, and description.
-- Status, priority, topic, and **Assigned to**.
-- Chronological comments.
-- Permitted attachments.
-- Visible action history.
-- Recorded resolution and closure information when closed.
+1. Open one of the requester's incidents.
+2. Add a comment and optional permitted attachments.
+3. Nexus records author and time.
+4. If assigned, the current agent is notified.
+5. If New and unassigned, topic agents are not notified about the comment.
 
-The requester cannot view incidents created by another requester unless a future permission explicitly grants it.
+### 4.4 Requester Notifications
 
-### 5.4 Add a Comment or Attachment
+Notify the requester when an agent comments, changes priority, transfers the incident, or closes it.
 
-1. The requester opens one of their incidents.
-2. The requester writes a comment and may add permitted attachments.
-3. Nexus validates and records the contribution with author, date, and time.
-4. If the incident is assigned, the assigned agent receives a notification.
-5. If the incident is **New** and unassigned, Nexus does not notify all responsible agents about the comment.
+## 5. Agent Flows
 
-### 5.5 Requester Notifications
+### 5.1 Home
 
-The requester receives a notification when:
+- **New:** unassigned incidents in the agent's responsible topics.
+- **My incidents:** incidents assigned to the agent and In Progress.
 
-- An agent adds a comment.
-- An agent changes the incident priority.
-- The incident is transferred to another topic.
-- The incident is closed.
+There is no In Progress + Unassigned queue because that state is invalid.
 
-## 6. Agent Flows
+### 5.2 Take Incident
 
-### 6.1 Agent Home
+1. Select **Take incident** directly from New.
+2. Nexus asks for confirmation.
+3. Cancel leaves everything unchanged.
+4. Confirm performs an atomic assignment.
+5. Success changes New to In Progress and assigns the agent.
+6. Nexus immediately opens the detail.
+7. Reviewing or changing priority is optional.
 
-The agent's main screen contains:
+If another agent won the race, Nexus rejects the stale request, explains that it is assigned, refreshes the list, and removes it from availability. Other topic agents are not notified when an incident is taken.
 
-- **New:** unassigned incidents belonging to the agent's responsible topics.
-- **My incidents:** incidents currently assigned to the agent and therefore **In Progress**.
+### 5.3 Work Assigned Incident
 
-There is no separate **Unassigned** section for incidents in progress because that state combination is invalid.
+The assignee may comment, attach permitted files, change priority, delegate, transfer topic, and close. Prior history and contributions remain visible.
 
-### 6.2 Take a New Incident
+### 5.4 Agent Comment
 
-1. From **New**, the agent selects **Take incident** directly without first opening its detail.
-2. Nexus displays a confirmation prompt.
-3. If the agent cancels, nothing changes.
-4. If the agent confirms, Nexus performs an atomic assignment operation.
-5. On success, Nexus assigns the incident to the agent and changes its status from **New** to **In Progress**.
-6. Nexus immediately opens the incident detail.
-7. The agent may begin working immediately.
-8. Reviewing or changing priority is optional; the agent does so only when considered necessary.
+Nexus records the visible comment and optional attachment with actor and time, then notifies the requester.
 
-#### Another agent took it first
+### 5.5 Change Priority
 
-1. Nexus rejects the stale assignment attempt.
-2. Nexus informs the agent that the incident has already been assigned.
-3. Nexus automatically refreshes the list.
-4. The incident no longer appears as available.
+Nexus applies the selected priority without mandatory justification, records old/new values and time, and notifies the requester.
 
-Taking an incident does not notify the other agents responsible for its topic.
+### 5.6 Delegate
 
-### 6.3 Work an Assigned Incident
+1. The assignee selects **Delegate**.
+2. Nexus lists only active responsible agents of the current topic.
+3. The assignee chooses a recipient and confirms.
+4. Delegation is immediate; acceptance is not required.
+5. The incident remains In Progress with the new assignee.
+6. Nexus records both assignees, actor, and time.
+7. The new assignee is notified.
+8. The previous assignee returns to Agent Home.
 
-The assigned agent can:
+### 5.7 Transfer Topic
 
-- Add visible comments.
-- Add permitted attachments.
-- Change priority.
-- Delegate the incident.
-- Transfer the incident to another topic.
-- Close the incident.
+1. The assignee selects **Transfer**.
+2. Select an active destination topic.
+3. Enter mandatory justification.
+4. Confirm.
+5. Nexus changes topic, removes the assignee, and returns the incident to New.
+6. It appears in the destination queue.
+7. Destination agents are not notified.
+8. The requester is notified.
+9. Justification and transfer details are visible to the requester and retained in history.
+10. The former assignee returns home.
 
-The agent can review all prior history, comments, attachments, and work recorded by previous assignees before continuing.
+History includes previous/new topic, prior assignee, justification, actor, and time.
 
-### 6.4 Add an Agent Comment
+### 5.8 Close Incident
 
-1. The assigned agent adds a comment and optional permitted attachments.
-2. Nexus records the author, date, and time.
-3. The comment is visible to the requester.
-4. The requester receives a notification.
+1. The assignee selects **Close incident**.
+2. Enter required resolution.
+3. Submit and review final confirmation.
+4. Cancel preserves drafted text and keeps the incident In Progress.
+5. Confirm changes it to Closed, stores resolution and closure time, and preserves history.
+6. The requester is notified.
+7. The agent returns home.
 
-### 6.5 Change Priority
+Only the current assignee may close.
 
-1. The assigned agent selects another priority.
-2. Nexus applies the change without requiring a justification.
-3. Nexus records the old and new priorities, actor, date, and time.
-4. The requester receives a notification.
+### 5.9 Agent Removed from Topic
 
-### 6.6 Delegate an Incident
+When an assigned agent loses responsibility for the topic:
 
-1. The current assignee selects **Delegate**.
-2. Nexus lists only active agents responsible for the incident's current topic.
-3. The agent selects the new assignee and confirms the action.
-4. Delegation takes effect immediately; acceptance by the recipient is not required.
-5. The incident remains **In Progress** and changes assignee.
-6. Nexus records the previous assignee, new assignee, actor, date, and time.
-7. The new assignee receives a notification.
-8. Nexus returns the previous assignee to the agent home screen.
+1. Nexus removes assignment.
+2. In Progress returns to New.
+3. The incident returns to the shared queue.
+4. Current responsible agents are notified.
+5. Existing comments, attachments, progress, and draft resolution are preserved.
+6. History records the former agent, state change, reason, and time.
 
-### 6.7 Transfer an Incident to Another Topic
+## 6. Organization Administrator Flows
 
-1. The assigned agent selects **Transfer**.
-2. Nexus asks for an active destination topic.
-3. The agent enters a mandatory justification.
-4. Nexus displays a confirmation.
-5. On confirmation, Nexus changes the topic, removes the assignee, and changes the status to **New**.
-6. The incident appears in the shared queue for the destination topic.
-7. Nexus does **not** notify the agents responsible for the destination topic.
-8. Nexus notifies the requester that the incident was transferred.
-9. The justification and transfer details are visible to the requester and retained in history.
-10. Nexus returns the previous assignee to the agent home screen.
+### 6.1 Dashboard and Incident Consultation
 
-The history records the previous topic, new topic, previous assignee, justification, actor, date, and time.
+The administrator sees tenant-scoped summaries and may open filtered lists. They have read-only access to incident detail, complete history, comments, attachments, resolution, and closure data.
 
-### 6.8 Close an Incident
+They cannot comment, assign, delegate, transfer, change priority, or close.
 
-1. The assigned agent selects **Close incident**.
-2. Nexus requires a resolution description.
-3. The agent submits the closure.
-4. Nexus displays a final confirmation.
-5. If the agent cancels, Nexus preserves the entered resolution text and keeps the incident **In Progress**.
-6. If the agent confirms, Nexus changes the status to **Closed**, records the resolution and closure timestamp, and preserves the complete history.
-7. The requester receives a notification.
-8. Nexus returns the agent to the main screen.
+### 6.2 Manage Users
 
-Only the current assignee can close an incident.
-
-### 6.9 Agent Loses Responsibility for the Topic
-
-If an assigned agent is removed from the incident's topic:
-
-1. Nexus automatically removes the individual assignment.
-2. Nexus changes the incident from **In Progress** to **New**.
-3. The incident returns to the shared queue of the topic's current responsible agents.
-4. Those agents receive a notification in the bell.
-5. Nexus preserves all comments, attachments, progress, and partial resolution text.
-6. The history records the prior agent, date and time, status change, and automatic unassignment reason.
-
-## 7. Organization Administrator Flows
-
-### 7.1 Administrator Dashboard
-
-1. Nexus displays a general incident summary by status, priority, and topic.
-2. Selecting an indicator opens the incident list with the corresponding filter already applied.
-3. Reports and incident data remain limited to the active organization.
-
-### 7.2 Consult Incidents
-
-The organization administrator has read-only access to all incidents in the organization and may view:
-
-- Incident details.
-- Complete history.
-- Comments.
-- Attachments.
-- Resolution and closure data.
-
-The administrator cannot comment, reassign, delegate, transfer, change priority, or close an incident.
-
-### 7.3 Manage Users
-
-The administrator can:
-
-- View users in the organization.
-- Assign and remove roles.
-- Assign and remove the topics handled by agents.
-- Deactivate and reactivate users.
-- Consult the user's audit history.
-
-Users are never permanently deleted; they are deactivated to preserve history and incident participation.
+Administrators can view users, assign/remove roles, assign/remove agent topics, deactivate/reactivate accounts, and inspect user audit. Users are deactivated, not permanently deleted.
 
 #### Change roles or topics
 
-1. The administrator edits the roles or topic responsibilities.
-2. Nexus validates that no active topic will be left without a responsible agent.
-3. Nexus applies valid changes immediately, including during active user sessions.
-4. Nexus automatically records the administrator, date and time, and previous and new values.
-5. A reason is not required.
-6. Active-session behavior follows section 4.3.
+1. Edit roles or topic responsibility.
+2. Nexus ensures no active topic loses its last responsible agent.
+3. Valid changes apply immediately and invalidate relevant Gateway cache entries.
+4. Audit records administrator, time, and old/new values.
+5. No reason is required.
+6. Active-session behavior follows section 3.3.
 
-#### Deactivate a user
+#### Deactivate user
 
-1. The administrator selects **Deactivate user**.
-2. Nexus requires a deactivation reason.
-3. After confirmation, Nexus deactivates the account and immediately closes all active sessions.
-4. If the user was an agent with assigned incidents, each incident returns to **New** and becomes **Unassigned**.
-5. Those incidents appear in their topics' normal shared queues; responsible agents are not notified.
-6. Nexus preserves every incident's existing work and history.
-7. Each affected incident records the previous agent, timestamp, change from **In Progress** to **New**, and deactivation as the reason.
-8. The user audit records the administrator, date and time, and mandatory reason.
+1. Select **Deactivate user** and provide a required reason.
+2. Confirm.
+3. Nexus disables the account, invalidates access state, and closes sessions.
+4. Assigned incidents return to New and unassigned.
+5. They return to normal topic queues without notifying topic agents.
+6. Prior work remains.
+7. Incident history records former agent, state change, reason, and time.
+8. User audit records administrator and mandatory reason.
 
-#### Reactivate a user
+#### Reactivate user
 
-1. The administrator selects **Reactivate user**.
-2. Nexus requires a reactivation reason.
-3. Nexus restores the user's previous roles and topic assignments, subject to current topic validation rules.
-4. Incidents released during deactivation remain **New** and **Unassigned**; Nexus does not return them automatically to the reactivated agent.
-5. The user audit records the administrator, date and time, and mandatory reason.
+1. Select **Reactivate user** and provide a required reason.
+2. Nexus restores prior roles and topic responsibility subject to current validation.
+3. Released incidents remain New and are not automatically reassigned.
+4. Audit records administrator, reason, and time.
 
-### 7.4 Manage Topics
+### 6.3 Manage Topics
 
-The administrator can create, edit, activate, and deactivate topics. Topics are never permanently deleted.
+Topics are never permanently deleted.
 
-#### Create and activate a topic
+- Creation requires name and description.
+- Activation requires at least one responsible agent.
+- Editing name/description preserves audit.
+- Removing a responsible agent is blocked if it would leave an active topic without agents.
+- Assigned incidents affected by removal follow section 5.9.
+- Deactivation is blocked while open incidents remain.
+- Once no open incidents remain, deactivation preserves historical associations.
 
-1. The administrator enters the topic name and description.
-2. At least one responsible agent must be assigned before activation.
-3. Nexus prevents activation until that condition is met.
+### 6.4 User Audit
 
-#### Edit a topic
+Audit includes activation/deactivation, role changes, topic changes, responsible administrator, time, required reasons, and previous/new values.
 
-1. The administrator may modify the name and description even when incidents are associated with the topic.
-2. Nexus records the administrator, date and time, and old and new values.
-3. The administrator can consult this audit history from the topic detail.
+## 7. Notification Flows
 
-#### Remove a responsible agent
+### 7.1 Events
 
-1. Nexus verifies how many active responsible agents remain.
-2. If the change would leave an active topic without any responsible agent, Nexus blocks it until another agent is assigned.
-3. If the removed agent has assigned incidents in that topic, each affected incident follows section 6.9.
-
-#### Deactivate a topic
-
-1. Nexus verifies whether the topic has open incidents.
-2. If open incidents exist, Nexus blocks deactivation until they are transferred to another active topic.
-3. When no open incidents remain, the administrator may deactivate the topic.
-4. The inactive topic remains associated with historical incidents.
-
-### 7.5 User Audit Detail
-
-The administrator can consult a complete history of:
-
-- Activations and deactivations.
-- Role changes.
-- Topic-assignment changes.
-- Responsible administrator.
-- Date and time.
-- Reasons when required.
-- Previous and new values.
-
-## 8. Notification Flows
-
-### 8.1 Notification Events
-
-| Event | Recipient | Notification rule |
+| Event | Recipient | Rule |
 | --- | --- | --- |
-| Incident created | All agents responsible for the topic | Notify |
-| Agent takes incident | Other responsible agents | Do not notify |
+| Incident created | Responsible topic agents | Notify |
+| Agent takes incident | Other topic agents | Do not notify |
 | Agent comments | Requester | Notify |
-| Requester comments on assigned incident | Assigned agent | Notify |
-| Requester comments on new unassigned incident | Topic agents | Do not notify |
+| Requester comments on assigned incident | Assignee | Notify |
+| Requester comments on New incident | Topic agents | Do not notify |
 | Agent changes priority | Requester | Notify |
-| Incident delegated | New assignee | Notify |
-| Incident transferred | Requester | Notify |
-| Incident transferred | Agents of destination topic | Do not notify |
+| Delegation | New assignee | Notify |
+| Topic transfer | Requester | Notify |
+| Topic transfer | Destination agents | Do not notify |
 | Incident closed | Requester | Notify |
-| Assigned agent removed from topic | Current responsible agents | Notify |
-| Agent account deactivated and incidents released | Topic agents | Do not notify |
+| Assigned agent removed from topic | Current topic agents | Notify |
+| Deactivated agent's incidents released | Topic agents | Do not notify |
 
-### 8.2 Notification Bell
+### 7.2 Bell and History
 
-- A notification can be marked individually as read.
-- The user can select **Mark all as read**.
-- A read notification can be marked as unread.
-- Marking it unread adds it back to the bell's unread counter.
-- Opening a notification automatically marks it as read.
-- Selecting an incident notification opens that incident's detail.
+- Mark one or all notifications read.
+- Mark a read notification unread; it re-enters the unread count.
+- Opening a notification marks it read.
+- Selecting an incident notification opens the incident when authorized.
 - Notifications remain visible in the bell for 60 days.
-- After 60 days, they stop appearing in the bell but are not deleted.
+- After 60 days they leave the bell but are not deleted.
+- History contains all notifications, newest first, 10 records per page.
+- History filters: date range, read state, and event type.
 
-### 8.3 Permission Loss
+### 7.3 Permission Loss
 
-Notifications should only be created for users who can access the referenced incident. If a user later loses access:
+Notifications are created only for users authorized at creation time. If access is later lost, Nexus displays **Access unavailable** and exposes no incident data; the notification remains according to normal history rules.
 
-1. Nexus does not expose incident data.
-2. Nexus displays **Access unavailable**.
-3. The notification remains visible according to the normal retention and display rules.
+### 7.4 Delivery Failure
 
-### 8.4 Notification History
+1. Tickets commits the business change before requesting notification creation.
+2. The request includes a unique operation identifier.
+3. Notifications treats retries idempotently.
+4. Immediate delivery uses Polly timeout, exponential-backoff retries, maximum attempts, and circuit breaker.
+5. Failure never reverses the ticket change.
+6. Tickets stores a durable pending delivery after immediate attempts fail.
+7. The Timer-triggered Azure Function retries eligible deliveries.
+8. Exhausted deliveries become Failed for manual review.
 
-1. The user opens **Notification history**.
-2. Nexus displays all notifications, including those older than 60 days.
-3. Results are ordered from newest to oldest.
-4. The screen displays 10 records per page.
-5. The user can filter by:
-   - Date range.
-   - Read status.
-   - Event type.
-6. Read and unread actions remain available according to the notification rules.
+A delayed notification does not change the already completed user action.
 
-## 9. Incident History and Audit Requirements
+## 8. State Transitions
 
-The incident history is chronological and must record, where applicable:
-
-- Incident creation.
-- Status changes.
-- Priority changes.
-- Assignment and automatic assignment failure outcomes where relevant.
-- Delegations.
-- Topic transfers and mandatory justifications.
-- Comments and attachments.
-- Automatic release caused by loss of topic responsibility.
-- Automatic release caused by user deactivation.
-- Closure and resolution.
-- Actor or system origin.
-- Date and time.
-- Previous and new values when applicable.
-
-Historical information remains accessible to authorized users even when an agent, user, or topic is later deactivated.
-
-## 10. Key State Transitions
-
-| Trigger | Previous state | New state | Assignment result |
+| Trigger | Previous | New | Assignment |
 | --- | --- | --- | --- |
-| Incident created | — | New | Unassigned |
-| Agent takes incident | New | In Progress | Taking agent |
-| Agent delegates | In Progress | In Progress | Selected agent from current topic |
-| Agent transfers topic | In Progress | New | Unassigned |
-| Assigned agent removed from topic | In Progress | New | Unassigned |
-| Assigned agent deactivated | In Progress | New | Unassigned |
-| Assigned agent closes incident | In Progress | Closed | Closing agent retained in history |
+| Create | — | New | Unassigned |
+| Take | New | In Progress | Taking agent |
+| Delegate | In Progress | In Progress | Selected current-topic agent |
+| Transfer | In Progress | New | Unassigned |
+| Assignee removed from topic | In Progress | New | Unassigned |
+| Assignee deactivated | In Progress | New | Unassigned |
+| Close | In Progress | Closed | Closing agent retained in history |
 
-No supported transition produces **In Progress + Unassigned**.
+No supported transition produces In Progress + Unassigned.
 
-## 11. Validation and Error Behavior
+## 9. Validation and Error Behavior
 
-- **Concurrent take:** reject the losing request, explain that the incident was already assigned, and refresh the queue.
-- **Missing closure resolution:** prevent closure and identify the required field.
-- **Missing transfer justification:** prevent transfer and identify the required field.
-- **Inactive destination topic:** prevent creation or transfer and request an active topic.
-- **Invalid delegation recipient:** prevent delegation unless the recipient is an active responsible agent for the current topic.
-- **Last responsible agent removal:** block the change while the topic is active.
-- **Topic deactivation with open incidents:** block until all open incidents are transferred.
-- **Unauthorized notification target:** display **Access unavailable** without exposing incident content.
-- **AI unavailable:** continue with manual topic and priority selection.
+- **Unknown/disabled Entra tenant:** deny access without leaking organization information.
+- **Disabled account or no roles:** deny access and close active sessions when applicable.
+- **Concurrent take:** reject loser, explain, and refresh.
+- **Missing closure resolution:** block closure and identify field.
+- **Missing transfer justification:** block transfer and identify field.
+- **Inactive topic:** block creation/transfer and require active topic.
+- **Invalid delegation recipient:** block unless active and responsible for current topic.
+- **Last responsible agent removal:** block while topic is active.
+- **Topic deactivation with open incidents:** block until transfer.
+- **Unauthorized notification target:** show Access unavailable without incident content.
+- **Notification outage:** preserve business result and enqueue durable retry.
 
-## 12. Flow-Level Acceptance Criteria
+## 10. Audit Requirements
 
-1. A requester can create an incident even when AI suggestions are unavailable.
-2. A new incident is routed only to its active topic's responsible agents.
-3. An agent can take an incident directly from the **New** list after confirmation.
-4. Only one concurrent take succeeds, and the losing user's queue refreshes.
-5. Taking an incident opens its detail and does not require a priority action.
-6. Every **In Progress** incident has exactly one current assignee.
-7. Delegation is immediate and limited to responsible agents of the current topic.
-8. Topic transfer requires justification, returns the incident to **New**, and leaves it unassigned.
-9. Destination-topic agents are not notified of a transfer; the requester is notified.
-10. Closure requires a resolution and final confirmation; canceling preserves the drafted resolution.
-11. Removing an assigned agent from a topic returns affected incidents to **New** and preserves all prior work.
-12. Deactivating a user immediately closes their sessions and releases assigned incidents without notifying topic agents.
-13. Reactivating a user restores roles and topics but does not restore former incident assignments.
-14. An active topic always has at least one responsible agent.
-15. A topic with open incidents cannot be deactivated.
-16. Organization administrators can inspect incidents but cannot perform incident-handling actions.
-17. Notification read state, unread count, 60-day bell visibility, and permanent history behavior work as defined.
-18. All user, topic, incident, notification, and audit access remains isolated by tenant.
+Incident history records creation, state and priority changes, assignment, delegation, transfer and justification, comments, attachments, automatic release, closure/resolution, actor or system origin, time, and old/new values.
 
-## 13. Required Synchronization with `PRODUCT.md`
+Historical data remains visible to authorized users after users or topics are deactivated.
 
-Before implementation, update the product specification to reflect these validated decisions:
+## 11. Acceptance Criteria
 
-- Taking an incident opens its detail and does not require mandatory priority confirmation.
-- Delegation is limited to responsible agents of the current topic and takes effect immediately.
-- Topic transfer requires a visible mandatory justification.
-- Topic transfer notifies the requester but does not notify agents of the destination topic.
-- **In Progress + Unassigned** is invalid; automatic unassignment returns an incident to **New**.
-- The organization administrator's incident access is strictly read-only.
-- User, topic, audit, active-session, and notification-history rules defined in this document.
-
+1. Access uses Entra organizational authentication and resolves the organization only from validated `tid`.
+2. First access creates a Requester under an enabled organization.
+3. Requesters manually select topic and priority; AI is not required or present.
+4. New incidents route only to responsible agents.
+5. Exactly one concurrent take succeeds and opens the detail.
+6. Taking does not force priority confirmation.
+7. Every In Progress incident has one assignee.
+8. Delegation is immediate and limited to current-topic agents.
+9. Transfer requires justification, returns to New, and notifies requester but not destination agents.
+10. Closure requires resolution and confirmation; cancel preserves draft text.
+11. Topic-responsibility removal releases incidents and preserves work.
+12. Deactivation closes sessions and releases incidents without notifying topic agents.
+13. Reactivation does not restore old assignments.
+14. Active topics always have at least one responsible agent.
+15. Topics with open incidents cannot be deactivated.
+16. Organization administrators have read-only incident access.
+17. Bell read state, unread count, 60-day visibility, and permanent history work as defined.
+18. Notification delivery is idempotent and recoverable without rolling back Tickets.
+19. All access remains isolated by tenant.
+20. Knowledge Base, AI, Service Bus, and other brokers are absent from the MVP.
