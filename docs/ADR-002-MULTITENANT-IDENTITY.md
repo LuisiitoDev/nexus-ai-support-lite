@@ -7,153 +7,263 @@
 
 ## Context
 
-Nexus Support Lite is a multi-tenant SaaS platform. Each customer organization uses its own identity provider, while Nexus owns local organizations, users, roles, account status, and authorization.
+Nexus Support Lite is a multi-tenant SaaS platform for organizations that use independent Microsoft Entra ID tenants. Microsoft Entra ID provides authentication, while Nexus owns the local organization registry, users, account status, and the product roles **Requester**, **Agent**, and **Administrator**.
 
-Microsoft Entra ID is the only identity provider integrated in the MVP. The architecture must permit additional providers later without making them part of the initial implementation.
+A Nexus Global Administrator must register and enable each customer organization before its users can access the platform. A successful Entra authentication alone must not grant access.
 
-A Nexus Global Administrator must register and enable each customer organization before its users can access the platform. Nexus identifies the organization from the authenticated Entra tenant identifier and automatically provisions a valid first-time user as a **Requester**.
+The design must:
 
-The authentication design must avoid maintaining a separate Nexus application registration and credential set for every customer while preserving an explicit tenant allowlist and strict organization isolation.
+- Avoid maintaining a separate application registration for every customer.
+- Resolve the organization from a trusted token claim.
+- Keep the microservices inaccessible from the public network.
+- Centralize token validation at the API Gateway.
+- Allow each microservice to enforce its own functional authorization rules.
+- Avoid consulting Identity on every request while applying role and account-status changes promptly.
+
+Microsoft Entra ID is the only identity provider included in the MVP. Support for additional providers remains a possible future evolution.
 
 ## Decision
 
-Use **Microsoft Entra ID multitenant application registrations** owned by the Nexus provider tenant.
+Use **two provider-owned Microsoft Entra ID multitenant application registrations**:
 
-The MVP will use:
+1. One application registration for the browser-based frontend.
+2. One application registration representing the protected Nexus API.
 
-- One multitenant application registration for the browser-based frontend.
-- One multitenant application registration representing the protected Nexus API.
-- Organizational Microsoft accounts only; personal Microsoft accounts are not supported.
-- An onboarding process that establishes the customer tenant's enterprise application and required consent before the organization is enabled in Nexus.
-- The Entra tenant ID claim, `tid`, as the external organization identifier.
-- Nexus-owned local records for organizations, identity-provider configuration, users, roles, and account status.
-- Automatic local user provisioning on first valid sign-in with the **Requester** role.
-- Synchronization of the user's name and email from validated Entra claims during sign-in.
+Only organizational Microsoft accounts are accepted. Personal Microsoft accounts are not supported.
 
-A successful Entra authentication is necessary but not sufficient for access. Nexus must also confirm that:
+Each customer organization must grant the required administrative consent during onboarding. Nexus does not create a separate application registration per customer.
 
-1. The token is valid for the intended Nexus API.
-2. The token comes from a supported Entra organizational tenant.
-3. The `tid` maps to a registered and enabled Nexus organization.
-4. The local user is enabled.
-5. The requested action is allowed by the user's local roles and tenant context.
+The browser frontend uses the OAuth 2.0 Authorization Code Flow with PKCE.
 
-The frontend must use the OAuth 2.0 Authorization Code Flow with PKCE. Access tokens are intended for the API, must not be treated as application session data, and must not be stored in insecure browser persistence.
+## Authentication Boundary
 
-The API Gateway and each service that accepts access tokens must enforce token validation and authorization at its own trust boundary. Internal service calls must not rely solely on claims forwarded by the browser.
+The **API Gateway is the only component that validates Microsoft Entra ID access tokens**.
 
-## Decision Drivers
+The Gateway validates, at minimum:
 
-- Support independent Microsoft Entra tenants for multiple customer organizations.
-- Keep customer onboarding centralized under the Nexus provider.
-- Avoid one application registration and credential lifecycle per customer.
-- Separate authentication by Entra from authorization by Nexus.
-- Reject unknown or disabled organizations even when authentication succeeds.
-- Preserve local roles, account status, and domain authorization.
-- Keep the design extensible for future identity providers.
-- Prevent tenant identity from being supplied or overridden by an untrusted client.
+- Signature.
+- Audience.
+- Issuer.
+- Expiration and validity period.
+- Required claims.
+- The Entra tenant claim, `tid`.
 
-## Tenant Resolution and Validation Rules
+The microservices do not repeat Entra token validation and are not publicly reachable. Azure networking and Azure Container Apps ingress configuration must ensure that business microservices accept traffic only through the internal application environment and the API Gateway.
 
-- The organization context is derived from the validated `tid` claim, never from a browser-supplied organization ID.
-- The token signature, audience, issuer, lifetime, and required claims must be validated using Microsoft identity platform metadata and libraries.
-- Issuer validation must account for multitenant endpoints while still binding the token issuer to the validated `tid`.
-- Unknown, malformed, missing, or disabled tenant mappings must produce an access denial without revealing other tenant information.
-- Every downstream data operation must be constrained to the resolved organization.
-- A route value, request body, query parameter, or custom header must not override the authenticated tenant context.
-- Local user and organization status must be checked after token validation and before access to business operations.
-- Authorization decisions remain server-side and cannot depend only on frontend visibility.
+The public client cannot call Identity, Tickets, or Notifications directly.
+
+## Tenant Resolution
+
+The organization is resolved exclusively from the validated `tid` claim.
+
+Nexus must never accept a tenant identifier from a route, query parameter, request body, browser-provided header, or other client input as a replacement for the authenticated tenant context.
+
+After validating the token, the Gateway must confirm that the `tid` maps to an organization that is both:
+
+- Registered in Nexus.
+- Enabled for access.
+
+An unknown, missing, malformed, or disabled tenant mapping results in access denial, even if Entra authenticated the user successfully.
+
+## Local User Provisioning and Roles
+
+Nexus manages the roles **Requester**, **Agent**, and **Administrator** locally. Entra groups and application roles are not the authoritative source for Nexus authorization.
+
+On a user's first valid sign-in, Nexus automatically creates the local user with:
+
+- The organization resolved from `tid`.
+- The immutable external subject identifier from the validated token.
+- The user's name.
+- The user's email.
+- The default **Requester** role.
+- An enabled local status, subject to the organization's onboarding rules.
+
+Email is not used as the stable identity key. Later changes to name or email may be synchronized without changing the user's local identity.
+
+## Identity Resolution and Cache
+
+After token validation and tenant resolution, the Gateway queries the Identity microservice for the local user, account status, and Nexus roles.
+
+The Gateway caches this authorization context for an initial duration of **five minutes** to avoid querying Identity on every request.
+
+The cache must be invalidated immediately when:
+
+- The user is enabled or disabled.
+- A role is assigned or removed.
+- The organization is disabled.
+- Another security-relevant identity change makes the cached authorization context stale.
+
+If immediate invalidation cannot be completed, access may remain governed by the cached context for no longer than its five-minute lifetime. Failures and invalidation delays must be observable.
+
+## Trusted Internal Identity Propagation
+
+The Gateway does not rely on identity headers received from the client.
+
+Before forwarding a request, it must:
+
+1. Remove any client-supplied headers that use reserved internal identity or authentication names.
+2. Validate the Entra token.
+3. Resolve the organization and local user context.
+4. Add trusted internal headers containing the minimum identity information required by the destination service, including the user identifier, tenant identifier, and roles.
+5. Add the destination microservice's internal authentication key.
+
+Each microservice has a **different internal shared key**. The service validates its own key before trusting the internal identity headers.
+
+The keys are:
+
+- Stored in GitHub Actions Secrets.
+- Injected into the appropriate runtime configuration during CI/CD deployment.
+- Never committed to source control.
+- Never embedded in container images.
+- Rotatable independently.
+
+A key for one service must not grant access to another service.
+
+Internal header names, canonical value formats, maximum sizes, and signing or rotation procedures must be documented before implementation.
+
+## Authorization
+
+Authentication is centralized at the Gateway, but **functional authorization remains the responsibility of each microservice**.
+
+Each microservice uses the trusted user, tenant, and role context supplied by the Gateway to enforce its own business rules. It must also constrain all data operations to the trusted tenant context.
+
+The Gateway may enforce broad route-level policies, but these do not replace domain authorization in the destination service.
 
 ## Organization Onboarding
 
 1. A Nexus Global Administrator creates the organization record.
-2. The administrator records the organization's Entra tenant ID and identity-provider configuration.
-3. The customer completes the required Entra enterprise-application and consent process.
-4. Nexus verifies the tenant configuration.
+2. The administrator records the organization's Entra tenant ID.
+3. A customer tenant administrator grants the required administrative consent.
+4. Nexus verifies the tenant and enterprise-application configuration.
 5. The Nexus Global Administrator enables the organization.
-6. Users from that tenant may authenticate.
-7. On first valid access, Nexus creates the local user as a Requester and associates it with the resolved organization.
+6. Users from the enabled tenant may authenticate.
+7. On first valid access, Nexus creates the local user as a Requester.
 
-The Nexus Global Administrator may manage organization and identity configuration but must not gain access to tenant operational data.
+The Nexus Global Administrator may manage organization and identity configuration but must not gain access to customer operational data solely because of that platform role.
+
+## Decision Drivers
+
+- Support independent Entra tenants for multiple customer organizations.
+- Minimize per-customer identity configuration.
+- Make the validated `tid` the authoritative tenant boundary.
+- Separate authentication by Entra from authorization by Nexus.
+- Keep product roles independent from Entra groups and roles.
+- Avoid duplicate token validation logic in every microservice.
+- Prevent direct public access to microservices.
+- Reduce synchronous calls to Identity with a short-lived cache.
+- Limit the impact of a compromised internal service key.
+- Preserve independent domain authorization.
 
 ## Consequences
 
 ### Positive
 
-- A single provider-owned SaaS identity configuration can serve multiple customer Entra tenants.
-- Nexus avoids per-customer application registrations and credentials.
-- Customer organizations retain authentication within their own Entra tenant.
-- Tenant onboarding remains explicitly controlled by Nexus.
-- Local roles and account status can evolve independently of Entra.
-- Future identity providers can be added behind the Identity domain without changing Ticket or Notification domain ownership.
+- A shared SaaS identity configuration supports multiple customer tenants.
+- Nexus avoids a separate application registration and credential lifecycle per customer.
+- Token validation logic is centralized in the Gateway.
+- Microservices remain focused on domain authorization rather than Entra integration.
+- Local roles and user status can evolve independently from Entra.
+- Per-service internal keys reduce the impact of one compromised key.
+- The five-minute cache reduces latency and Identity load.
 
 ### Negative and trade-offs
 
-- Multitenant issuer validation is more complex than single-tenant validation.
-- Customer onboarding may require an administrator from the customer tenant to complete consent or enterprise-application configuration.
-- A configuration error in tenant allowlisting could deny valid users or create an isolation risk.
-- Automatic provisioning requires careful handling of stable external subject identifiers, claim changes, and duplicate email addresses.
-- Two application registrations introduce separate redirect URI, permission, and lifecycle configuration.
-- Supporting additional identity providers later will require provider-neutral identity linking rather than treating Entra-specific claims as the local user key.
+- The Gateway becomes a critical authentication and identity-propagation component.
+- Network isolation is mandatory because microservices do not validate the original Entra token.
+- Shared internal keys require secure injection, independent rotation, and careful operational handling.
+- Trusted identity headers create a private protocol that must be versioned and tested.
+- Immediate cache invalidation introduces coordination between Identity and the Gateway.
+- A failed invalidation can delay application of role or status changes for up to five minutes.
+- Multitenant issuer validation and customer consent are more complex than a single-tenant setup.
+- Two application registrations require separate redirect URI, scope, permission, and lifecycle management.
 
 ## Alternatives Considered
 
+### Validate the Entra token in the Gateway and every microservice
+
+Rejected for the MVP because microservices are private and must only be reachable through the Gateway. Repeating the same Entra validation in every service adds implementation and maintenance overhead. This decision depends on enforcing network isolation and internal request authentication.
+
+### Forward the original Entra token to microservices
+
+Rejected because the selected design centralizes Entra authentication at the Gateway. Services receive only the minimum trusted identity context required for authorization.
+
+### Trust internal headers based only on network isolation
+
+Rejected because network isolation alone does not authenticate the caller. Each service also requires its own internal shared key.
+
+### Use one internal key for all microservices
+
+Rejected because compromise of one shared key would permit impersonation across every service.
+
 ### One application registration per customer
 
-Rejected for the MVP because it creates repeated configuration, credentials, redirect management, consent handling, and operational drift for every organization.
+Rejected because it creates repeated configuration, credential, redirect, consent, and lifecycle management for every organization.
 
 ### Single-tenant application registration
 
-Rejected because it would authenticate only users from the Nexus provider tenant and would not satisfy the multi-company SaaS requirement.
+Rejected because it cannot serve users from independent customer Entra tenants.
 
-### Email-first organization resolution
+### Use Entra groups or roles as the Nexus authorization model
 
-Rejected for the Entra MVP flow. Email domains are mutable, aliases may overlap, and an email supplied before authentication is not a trustworthy tenant boundary. The validated Entra tenant ID is the authoritative organization key.
+Rejected because Nexus owns its product roles, account status, and tenant-specific domain authorization.
 
-### Use Entra roles or groups as the sole authorization model
+### Resolve organizations from email domains
 
-Rejected because Nexus owns product roles, topic permissions, local account status, and tenant-specific authorization. External identity claims cannot replace those controls.
-
-### Support multiple identity providers in the MVP
-
-Rejected to limit initial scope. The architecture remains extensible, but only Microsoft Entra ID will be implemented initially.
+Rejected because email addresses and domains are not a trustworthy tenant boundary. The validated `tid` claim is authoritative.
 
 ## Security Requirements
 
-- Use maintained Microsoft identity platform libraries instead of custom token parsing or signature validation.
-- Request only the minimum delegated permissions required for sign-in and API access.
-- Do not store customer credentials in source control or container images.
-- Do not use email as the stable local identity key; persist the provider, tenant identifier, and immutable external subject identifier.
-- Do not accept personal Microsoft accounts.
-- Rotate and protect any application credentials used by confidential components.
-- Record security-relevant onboarding, tenant enablement, role, and account-status changes.
-- Return generic access-denied responses for unknown or disabled organizations.
+- Use maintained Microsoft identity platform libraries in the Gateway.
+- Request only the minimum delegated permissions required.
+- Reject tokens with invalid signature, issuer, audience, lifetime, or required claims.
+- Bind multitenant issuer validation to the validated `tid`.
+- Strip all reserved internal identity and authentication headers received from public clients.
+- Keep business microservices on private ingress and prevent routes that bypass the Gateway.
+- Use constant-time comparison or a maintained authentication mechanism when validating internal keys.
+- Store each service key in GitHub Actions Secrets and inject it only into the Gateway and its intended service.
+- Rotate keys without rebuilding container images.
+- Do not log tokens, internal keys, or unnecessary personal claims.
+- Do not use email as the stable user identity key.
+- Record security-relevant organization, consent, role, status, and key-rotation changes.
+- Return generic access-denied responses for unknown or disabled tenants and users.
 - Test tenant isolation independently from role authorization.
+- Define failure behavior for an unavailable Identity service and stale cache entries before production.
 
 ## Reconsideration Triggers
 
 Re-evaluate this decision if:
 
-- A customer requires a dedicated application registration or isolated identity configuration.
-- Microsoft Entra external identity capabilities become a better fit for the onboarding model.
+- Microservices become directly accessible outside the trusted internal environment.
+- Services are deployed across multiple trust zones or environments.
+- Internal shared-key rotation becomes operationally difficult.
+- Workload identity, mutual TLS, or a service mesh becomes justified.
+- Compliance requires each service to validate the end-user token.
+- A customer requires a dedicated identity configuration.
 - Additional identity providers become an approved product requirement.
-- Regulatory requirements demand per-customer keys, credentials, or deployment isolation.
-- The frontend architecture changes from a browser SPA to a server-side confidential client or Backend for Frontend.
-- Customer-specific conditional-access or consent requirements cannot be supported reliably by the shared multitenant registration.
+- The frontend changes to a Backend for Frontend or another confidential-client architecture.
+- Customer-specific conditional-access or consent requirements cannot be supported by the shared multitenant registrations.
 
 ## Validation Criteria
 
 Before production launch, tests must demonstrate that:
 
 1. A user from a registered and enabled Entra tenant can authenticate.
-2. A first-time valid user is provisioned locally as a Requester.
-3. Name and email changes are synchronized without changing the local identity key.
-4. A user from an unknown tenant is denied.
-5. A user from a disabled organization is denied.
-6. A locally disabled user is denied even when Entra authentication succeeds.
-7. A token with an invalid signature, issuer, audience, lifetime, or tenant claim is denied.
-8. A user cannot override the resolved tenant through request input.
-9. Tokens issued for one tenant cannot retrieve or mutate another tenant's data.
-10. Nexus roles and topic permissions are enforced independently from Entra authentication.
-11. The Nexus Global Administrator can manage tenant identity configuration without reading tenant operational data.
-12. The frontend and API registrations, redirect URIs, scopes, consent, and logout behavior work in at least two independent Entra test tenants.
+2. Only organizational Microsoft accounts are accepted.
+3. A customer tenant can complete the required administrative consent.
+4. A first-time valid user is provisioned locally as a Requester.
+5. Name and email changes do not change the stable local identity.
+6. A user from an unknown or disabled tenant is denied.
+7. A locally disabled user is denied even when Entra authentication succeeds.
+8. The Gateway rejects invalid signature, issuer, audience, lifetime, and tenant claims.
+9. A client cannot override the tenant through routes, bodies, queries, or headers.
+10. Client-supplied reserved internal headers are removed.
+11. Business microservices cannot be reached directly from the public network.
+12. A request without the correct destination-service key is rejected.
+13. A key for one microservice cannot authenticate to another microservice.
+14. Each microservice enforces its own role and tenant authorization.
+15. The Gateway obtains status and roles from Identity and caches them for no more than five minutes.
+16. User, role, and organization status changes invalidate the related cache immediately.
+17. A failed invalidation never leaves stale authorization context beyond five minutes.
+18. Tokens and identities from one tenant cannot retrieve or mutate another tenant's data.
+19. GitHub Actions injects service keys without placing them in source control, build logs, or container images.
+20. The frontend and API registrations work in at least two independent Entra test tenants.
