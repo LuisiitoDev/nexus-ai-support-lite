@@ -3,7 +3,7 @@
 ## Container Diagram
 
 **Status:** Discovery validated  
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** August 1, 2026  
 **Related documents:** `PRODUCT.md`, `PERSONAS.md`, `USER_FLOWS.md`, `SYSTEM_CONTEXT.md`
 
@@ -23,7 +23,7 @@ The MVP contains three business services:
 - **Ticket Service**
 - **Notification Service**
 
-Each service owns its data store and must not read or write another service's database directly. Services may communicate synchronously through HTTP and asynchronously through an event broker.
+Each service owns its data store and must not read or write another service's database directly. For the MVP, services communicate synchronously through HTTP. Asynchronous messaging remains a future evolution that must be justified by reliability, scale, or fan-out requirements.
 
 The architecture anticipates a future **Knowledge Base Service**, but that service is outside the MVP and is not an implemented container in the current design.
 
@@ -34,9 +34,8 @@ The architecture anticipates a future **Knowledge Base Service**, but that servi
 | Web Frontend | Provides the responsive browser interface for Requesters, Agents, Organization Administrators, and Nexus Global Administrators. | No authoritative business data. | Uses the API Gateway; initiates the Entra ID sign-in experience. |
 | API Gateway | Provides the single backend entry point, routes requests to the appropriate service, and preserves authenticated tenant and user context. | No business data. | Receives frontend requests and routes them to Identity, Ticket, or Notification services. |
 | Identity Service | Manages organizations, identity-provider configuration, local users, roles, account state, and tenant membership. Delegates initial authentication to Microsoft Entra ID and provisions first-time users as Requesters. | Organizations, IdP configuration, users, roles, and identity-related tenant data. | Communicates with Entra ID; serves identity and authorization capabilities through the gateway; may provide validated identity or authorization context to other services. |
-| Ticket Service | Owns topics, incidents, assignments, priorities, comments, attachment references, resolution data, and incident history. Enforces the incident workflow and atomic incident assignment. | All ticket-domain operational data. | Serves ticket operations through the gateway; uses synchronous service calls when an immediate response is required; publishes domain events. |
-| Notification Service | Creates, stores, lists, and updates internal notifications. Owns notification history and each notification's read/unread state. | Notifications, recipients, delivery state, and read/unread state. | Serves notification queries and commands through the gateway; consumes relevant domain events asynchronously. |
-| Event Broker | Transports asynchronous events between services without direct temporal coupling. | Only transient or broker-managed delivery data; it is not the system of record for business entities. | Receives published events and delivers them to subscribed services, initially including the Notification Service. |
+| Ticket Service | Owns topics, incidents, assignments, priorities, comments, attachment references, resolution data, and incident history. Enforces the incident workflow and atomic incident assignment. | All ticket-domain operational data. | Serves ticket operations through the gateway and requests notification creation from the Notification Service over HTTP. |
+| Notification Service | Creates, stores, lists, and updates internal notifications. Owns notification history and each notification's read/unread state. | Notifications, recipients, delivery state, and read/unread state. | Serves notification queries and commands through the gateway; receives notification-creation requests from the Ticket Service over HTTP. |
 | Identity Database | Persists data owned exclusively by the Identity Service. | Identity-domain data. | Accessible only by the Identity Service. |
 | Ticket Database | Persists data owned exclusively by the Ticket Service. | Ticket-domain data. | Accessible only by the Ticket Service. |
 | Notification Database | Persists data owned exclusively by the Notification Service. | Notification-domain data. | Accessible only by the Notification Service. |
@@ -60,8 +59,6 @@ flowchart TB
             Notifications["Notification Service"]
         end
 
-        Broker["Event Broker"]
-
         subgraph Data["Service-owned data stores"]
             IdentityDB[("Identity Database")]
             TicketDB[("Ticket Database")]
@@ -79,8 +76,7 @@ flowchart TB
     Identity --> IdentityDB
     Tickets --> TicketDB
     Notifications --> NotificationDB
-    Tickets -->|"Publish domain events"| Broker
-    Broker -->|"Deliver relevant events"| Notifications
+    Tickets -->|"Create notification; HTTP with controlled retries"| Notifications
     Tickets <-->|"Synchronous HTTP when required"| Identity
     Notifications <-->|"Synchronous HTTP when required"| Identity
 ```
@@ -104,16 +100,17 @@ The synchronous links show permitted interaction, not a requirement that every r
 2. The gateway routes them to the Ticket Service.
 3. The Ticket Service validates the tenant, role, topic, assignment, and workflow rules required by the operation.
 4. The Ticket Service reads or changes only its own database.
-5. Relevant changes produce domain events for asynchronous consumers.
+5. Relevant changes trigger an HTTP request to the Notification Service when an in-app notification is required.
 
 ### 5.3 Internal Notifications
 
-1. The Ticket Service publishes a relevant domain event to the Event Broker.
-2. The Notification Service consumes the event.
+1. After committing the ticket change, the Ticket Service requests notification creation from the Notification Service through HTTP.
+2. If the request fails, the Ticket Service applies controlled retries and records the final failure.
 3. The Notification Service determines the recipients according to the event and validated product rules.
 4. It creates persistent internal notifications in its own database.
 5. Users retrieve and update their notifications through the API Gateway.
 6. Marking a notification as read or unread is handled exclusively by the Notification Service; an unread notification contributes to the pending count shown by the bell.
+7. A notification failure never rolls back or corrupts the already committed ticket change; the MVP accepts that a notification may be delayed or, after retries are exhausted, not be created.
 
 The exact event catalog and recipient resolution rules should be specified separately and must remain consistent with `USER_FLOWS.md`.
 
@@ -122,11 +119,10 @@ The exact event catalog and recipient resolution rules should be specified separ
 - The frontend communicates with backend services only through the API Gateway.
 - A service never accesses another service's database.
 - HTTP is used when a request requires an immediate response.
-- Asynchronous events are used for decoupled reactions, including internal notification generation.
-- The Event Broker transports events but does not become the authoritative store for tickets, identities, or notifications.
+- Ticket-to-notification communication uses HTTP with controlled retries in the MVP.
 - Every request, command, query, and event must carry or resolve sufficient tenant context to preserve organization isolation.
 - Authorization must be enforced by backend services and cannot depend solely on frontend visibility.
-- Failure of the Notification Service or Event Broker must not corrupt a successfully committed ticket operation; delivery reliability and recovery semantics remain pending architectural decisions.
+- Failure of the Notification Service must not corrupt a successfully committed ticket operation; retry limits and operational recovery remain pending architectural decisions.
 
 ## 7. Data Ownership
 
@@ -148,7 +144,7 @@ Physical attachment storage is not selected in this document. The Ticket Service
 - The API Gateway propagates authenticated user and tenant context but does not replace authorization inside each service.
 - Each service must enforce tenant isolation for its own operations and data.
 - Service-owned databases must prevent cross-tenant data exposure even when multiple tenants share physical infrastructure.
-- Events must include a trustworthy tenant identifier and consumers must enforce it before processing or persisting data.
+- Inter-service requests must include trustworthy tenant and user context, and the receiving service must enforce it before processing or persisting data.
 - The Nexus Global Administrator's identity capabilities must remain separated from tenant operational access, as defined in `SYSTEM_CONTEXT.md`.
 
 ## 9. MVP Scope and Future Containers
@@ -160,7 +156,7 @@ Physical attachment storage is not selected in this document. The Ticket Service
 - Identity Service and its database.
 - Ticket Service and its database.
 - Notification Service and its database.
-- Event Broker supporting asynchronous notification generation.
+- HTTP communication from Tickets to Notifications with controlled retries and failure logging.
 - Microsoft Entra ID integration.
 
 ### Prepared but not included
@@ -175,8 +171,8 @@ This document intentionally does not decide:
 - Backend framework and runtime.
 - API Gateway product or implementation pattern.
 - Database engines or whether different services use different engines.
-- Event broker technology.
-- Event delivery guarantees, retry policy, dead-letter handling, ordering, or idempotency strategy.
+- Exact HTTP retry limits, timeout policy, and operational alert thresholds.
+- Criteria for adopting asynchronous messaging in a future phase.
 - Authentication protocol, token format, service-to-service identity, or authorization policy implementation.
 - How role or topic changes are propagated immediately across active sessions.
 - Attachment byte storage and malware-scanning mechanism.
@@ -199,8 +195,8 @@ Before implementation, the documentation set should be synchronized so that:
 2. Identity, Ticket, and Notification services persist data only in their respective stores.
 3. No service reads or writes another service's database directly.
 4. The Identity Service delegates initial authentication to Microsoft Entra ID while retaining local organization, user, role, and account-state responsibilities.
-5. The Ticket Service can publish domain events without requiring the Notification Service to be synchronously available.
-6. The Notification Service creates and retains internal notifications from relevant events and owns their read/unread state.
+5. A committed ticket operation remains successful when notification delivery fails.
+6. The Notification Service creates and retains internal notifications requested by the Ticket Service and owns their read/unread state.
 7. A notification marked unread contributes again to the user's pending-notification count.
 8. Tenant context is enforced at the gateway, service, database-access, and event-processing boundaries.
 9. Knowledge Base functionality is absent from the MVP implementation.
