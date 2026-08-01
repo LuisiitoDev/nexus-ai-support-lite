@@ -3,7 +3,7 @@
 ## System Context
 
 **Status:** Discovery validated  
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** August 1, 2026  
 **Related documents:** `PRODUCT.md`, `PERSONAS.md`, `USER_FLOWS.md`
 
@@ -28,21 +28,24 @@ The human context, goals, frustrations, and usage patterns of the primary users 
 | Requester | Registers incidents and follows their status, comments, assignee, and resolution within their organization. |
 | Agent | Handles incidents associated with their assigned topics and records the work performed. |
 | Organization Administrator | Maintains users, roles, and topics and consults operational information within their organization. |
-| Nexus Global Administrator | Onboards and enables organizations and configures their identity-provider connection. This person belongs to the Nexus provider and cannot access tenant operational data. |
+| Nexus Global Administrator | Onboards and enables organizations and coordinates administrative consent for Nexus. This person belongs to the Nexus provider and cannot access tenant operational data. |
 
 ## 4. External Systems
 
 ### 4.1 Microsoft Entra ID
 
-Microsoft Entra ID is the only identity provider integrated in the initial phase.
+Microsoft Entra ID is the only identity provider integrated in the initial phase. Nexus accepts organizational Entra ID accounts only; personal Microsoft accounts are excluded.
 
-For each enabled organization, Entra ID:
+Nexus uses two shared multitenant App Registrations:
 
-- Authenticates users belonging to that organization's tenant.
-- Returns the tenant identifier used by Nexus to identify the organization.
-- Provides the authenticated user's basic profile, initially name and email address.
+- One App Registration for the web frontend.
+- One App Registration for the API.
 
-Nexus trusts the authentication performed by the configured identity provider but remains responsible for tenant resolution, local account status, role authorization, topic authorization, and data isolation.
+Each customer organization grants administrative consent to these applications during onboarding. Nexus does not maintain a separate App Registration or identity-provider connection for each organization.
+
+After Microsoft Entra ID authenticates the user, the Nexus API Gateway validates the token and resolves the organization exclusively from the validated `tid` claim. A tenant identifier supplied separately by the browser or frontend is never trusted. Entra ID also provides the authenticated user's basic profile, initially name and email address.
+
+Nexus remains responsible for tenant admission, local account status, role authorization, topic authorization, and data isolation.
 
 ### 4.2 Future Identity Providers
 
@@ -68,9 +71,9 @@ flowchart TB
     Entra["Microsoft Entra ID<br/>Initial identity provider"]
 
     Users -->|"Use support and administration functions"| Nexus
-    GlobalAdmin -->|"Onboard organizations and configure identity"| Nexus
-    Nexus -->|"Redirect for authentication"| Entra
-    Entra -->|"Return identity, tenant ID, name, and email"| Nexus
+    GlobalAdmin -->|"Onboard organizations and coordinate admin consent"| Nexus
+    Nexus -->|"Authenticate through multitenant applications"| Entra
+    Entra -->|"Return validated identity claims including tid"| Nexus
 ```
 
 The diagram shows only the initial external context. Future identity providers are excluded because none has yet been selected.
@@ -78,10 +81,10 @@ The diagram shows only the initial external context. Future identity providers a
 ## 6. Organization Onboarding and Access Context
 
 1. The Nexus Global Administrator registers and enables an organization before its users can access Nexus.
-2. The administrator configures the organization's Microsoft Entra ID tenant.
-3. A user authenticates through that tenant's Entra ID connection.
-4. Nexus identifies the organization from the tenant ID returned during authentication.
-5. Nexus rejects access when the tenant ID is unknown or the organization is disabled and informs the user that the organization is not enabled.
+2. An administrator of the customer organization grants administrative consent to the Nexus frontend and API App Registrations.
+3. A user signs in with an organizational Microsoft Entra ID account.
+4. The API Gateway validates the token and Nexus identifies the organization exclusively from its `tid` claim.
+5. Nexus rejects access when the `tid` is unknown or the organization is disabled and informs the user that the organization is not enabled.
 6. Any successfully authenticated user from an enabled tenant may enter Nexus without prior manual creation by an organization administrator.
 7. On first access, Nexus creates the local user automatically with the **Requester** role.
 8. Nexus synchronizes the user's name and email address from Entra ID during sign-in.
@@ -91,8 +94,11 @@ The diagram shows only the initial external context. Future identity providers a
 
 ### 7.1 Identity Boundary
 
-- Each organization uses its own identity-provider configuration.
-- Microsoft Entra ID authenticates the person; Nexus authorizes what that person may do.
+- Nexus uses shared multitenant App Registrations rather than a separate identity-provider configuration for each organization.
+- Only organizational Microsoft Entra ID accounts are accepted.
+- The customer organization must grant administrative consent during onboarding.
+- Microsoft Entra ID authenticates the person; the Nexus API Gateway validates the token; Nexus authorizes what that person may do.
+- The organization is derived exclusively from the validated `tid` claim, never from a tenant identifier supplied by the frontend.
 - An authenticated identity alone does not grant access to an unregistered or disabled organization.
 - A locally deactivated user must not retain access even if Entra ID authenticates them successfully.
 
@@ -111,16 +117,17 @@ The diagram shows only the initial external context. Future identity providers a
 ## 8. Key Context-Level Requirements
 
 1. Nexus must support multiple organizations on the same platform with complete tenant isolation.
-2. Each organization must have an independently configured identity-provider connection.
-3. Microsoft Entra ID must be supported in the initial phase.
-4. The architecture must permit additional identity providers without making them part of the initial implementation scope.
-5. The organization must be resolved from the authenticated tenant ID.
-6. Unknown or disabled organizations must be denied access.
-7. A valid first-time user from an enabled tenant must be provisioned automatically as a Requester.
-8. Name and email must be synchronized from Entra ID during sign-in.
-9. Authentication, local user status, role authorization, topic authorization, and tenant authorization must remain distinct controls.
-10. Initial notifications must remain internal to Nexus.
-11. Identity-provider failure must prevent authentication but must not compromise or expose tenant information.
+2. Nexus must use separate multitenant App Registrations for the frontend and API.
+3. Customer organizations must grant administrative consent during onboarding.
+4. Microsoft Entra ID organizational accounts must be supported in the initial phase; personal Microsoft accounts must be rejected.
+5. The architecture must permit additional identity providers without making them part of the initial implementation scope.
+6. The organization must be resolved exclusively from the validated `tid` claim.
+7. Unknown or disabled organizations must be denied access.
+8. A valid first-time user from an enabled tenant must be provisioned automatically as a Requester.
+9. Name and email must be synchronized from Entra ID during sign-in.
+10. Authentication, token validation, local user status, role authorization, topic authorization, and tenant authorization must remain distinct controls.
+11. Initial notifications must remain internal to Nexus.
+12. Identity-provider failure must prevent authentication but must not compromise or expose tenant information.
 
 ## 9. Context-Level Constraints and Non-Decisions
 
@@ -135,23 +142,26 @@ The diagram shows only the initial external context. Future identity providers a
 The following newer Discovery decisions supersede or clarify portions of `PRODUCT.md` and must be synchronized there before implementation:
 
 - Microsoft Entra ID is the sole identity provider integrated in the initial phase, while future multi-IdP support remains an architectural requirement.
-- Each organization uses its own identity-provider configuration.
-- The Nexus Global Administrator must register and enable the organization and configure its identity connection before access is allowed.
-- Nexus identifies the organization from the tenant ID returned during authentication.
-- An unknown tenant ID or disabled organization causes access to be rejected.
+- Nexus uses two shared multitenant App Registrations, one for the frontend and one for the API.
+- Only organizational accounts are accepted; personal Microsoft accounts are excluded.
+- The Nexus Global Administrator must register and enable the organization, and the customer organization must grant administrative consent before access is allowed.
+- The API Gateway validates the token, and Nexus identifies the organization exclusively from the validated `tid` claim.
+- An unknown `tid` or disabled organization causes access to be rejected.
 - The earlier email-first organization-resolution flow in `PRODUCT.md` is not the current decision for the Entra ID initial flow and requires revision.
 - Nexus synchronizes the user's name and email from Entra ID during sign-in.
 
 ## 11. Context-Level Acceptance Criteria
 
-1. A user authenticated by the configured Entra ID tenant of an enabled organization is associated only with that organization.
-2. A tenant ID that is not registered cannot access Nexus.
-3. A disabled organization cannot access Nexus even when Entra ID authentication succeeds.
-4. A valid first-time user is created automatically as a Requester with the name and email supplied by Entra ID.
-5. A locally deactivated user cannot access Nexus even when the external identity remains valid.
-6. Operational data from one organization is never returned to a user, administrator, or request associated with another organization.
-7. The Nexus Global Administrator can manage organization and identity configuration without access to tenant operational data.
-8. Users receive product notifications within Nexus and no notification is sent through email or Teams.
+1. A user authenticated with an organizational Entra ID account from an enabled tenant is associated only with that organization.
+2. Access is possible only after the customer organization grants administrative consent to both Nexus App Registrations.
+3. A `tid` that is not registered cannot access Nexus.
+4. A disabled organization cannot access Nexus even when Entra ID authentication succeeds.
+5. A tenant identifier supplied by the browser or frontend cannot override the validated `tid` claim.
+6. A valid first-time user is created automatically as a Requester with the name and email supplied by Entra ID.
+7. A locally deactivated user cannot access Nexus even when the external identity remains valid.
+8. Operational data from one organization is never returned to a user, administrator, or request associated with another organization.
+9. The Nexus Global Administrator can manage organization onboarding without access to tenant operational data.
+10. Users receive product notifications within Nexus and no notification is sent through email or Teams.
 
 ## 12. Next Architecture Document
 
