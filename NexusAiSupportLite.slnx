@@ -19,4 +19,7 @@
     <Project Path="src/Services/Ticket/NexusSupport.Ticket.Domain/NexusSupport.Ticket.Domain.csproj" />
     <Project Path="src/Services/Ticket/NexusSupport.Ticket.Infrastructure/NexusSupport.Ticket.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/NexusSupport.SourceGenerator/NexusSupport.SourceGenerator.csproj" />
+  </Folder>
 </Solution>
