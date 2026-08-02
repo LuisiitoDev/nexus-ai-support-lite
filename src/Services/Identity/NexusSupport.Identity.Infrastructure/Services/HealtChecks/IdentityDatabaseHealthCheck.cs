@@ -1,8 +1,7 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using NexusSupport.Identity.Infrastructure.Persistence;
 
-namespace NexusSupport.Identity.Api.HealthChecks;
+namespace NexusSupport.Identity.Infrastructure.Services.HealthCheck;
 
 public sealed class IdentityDatabaseHealthCheck(IdentityDbContext dbContext) : IHealthCheck
 {
