@@ -22,4 +22,9 @@
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/NexusSupport.SourceGenerator/NexusSupport.SourceGenerator.csproj" />
   </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Services/" />
+  <Folder Name="/tests/Services/Identity/">
+    <Project Path="tests/Services/Identity/NexusSupport.Identity.Infrastructure.Tests/NexusSupport.Identity.Infrastructure.Tests.csproj" />
+  </Folder>
 </Solution>
