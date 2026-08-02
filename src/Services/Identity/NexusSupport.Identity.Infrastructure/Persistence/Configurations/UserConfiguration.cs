@@ -15,6 +15,14 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<UserModel>
         builder.Property(u => u.Id)
             .HasColumnName("Id");
 
+        builder.Property(u => u.ExternalSubjectId)
+            .HasColumnName("ExternalSubjectId")
+            .HasMaxLength(250)
+            .IsRequired();
+
+        builder.HasIndex(u => u.ExternalSubjectId)
+            .IsUnique();
+
         builder.Property(u => u.Email)
             .HasColumnName("Email")
             .HasMaxLength(250)
