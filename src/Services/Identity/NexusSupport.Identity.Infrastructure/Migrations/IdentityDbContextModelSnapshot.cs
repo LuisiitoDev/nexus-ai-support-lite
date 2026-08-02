@@ -307,6 +307,12 @@ namespace NexusSupport.Identity.Infrastructure.Migrations
                         .HasColumnType("nvarchar(250)")
                         .HasColumnName("FirstName");
 
+                    b.Property<string>("Issuer")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)")
+                        .HasColumnName("Issuer");
+
                     b.Property<DateTime>("LastLogin")
                         .HasColumnType("datetime2")
                         .HasColumnName("LastLogin");
@@ -329,7 +335,7 @@ namespace NexusSupport.Identity.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ExternalSubjectId")
+                    b.HasIndex("Issuer", "ExternalSubjectId")
                         .IsUnique();
 
                     b.HasIndex("Status");

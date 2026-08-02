@@ -120,6 +120,7 @@ namespace NexusSupport.Identity.Infrastructure.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Issuer = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
                     ExternalSubjectId = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
                     Email = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
                     FirstName = table.Column<string>(type: "nvarchar(250)", maxLength: 250, nullable: false),
@@ -245,9 +246,9 @@ namespace NexusSupport.Identity.Infrastructure.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_User_ExternalSubjectId",
+                name: "IX_User_Issuer_ExternalSubjectId",
                 table: "User",
-                column: "ExternalSubjectId",
+                columns: new[] { "Issuer", "ExternalSubjectId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
