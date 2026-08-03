@@ -32,7 +32,6 @@ app.MapHealthChecks("/health");
 app.MapUserEndpoints();
 app.MapTenantEndpoints();
 app.MapTenantMembershipEndpoints();
-app.MapIdentityProviderEndpoints();
 app.MapRolEndpoints();
 app.MapMembershipRoleEndpoints();
 

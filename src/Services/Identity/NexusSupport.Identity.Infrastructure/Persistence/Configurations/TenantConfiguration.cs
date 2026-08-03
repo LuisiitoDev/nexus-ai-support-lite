@@ -21,6 +21,16 @@ internal sealed class TenantConfiguration : IEntityTypeConfiguration<TenantModel
             .HasMaxLength(250)
             .IsRequired();
 
+        builder.Property(t => t.EntraTenantId)
+            .HasColumnName("EntraTenantId")
+            .HasMaxLength(36)
+            .IsRequired();
+
+        // The Gateway resolves the organization from the validated `tid` claim only,
+        // so each Entra tenant may back at most one Nexus organization (ADR-002).
+        builder.HasIndex(t => t.EntraTenantId)
+            .IsUnique();
+
         builder.Property(t => t.IsActive)
             .HasColumnName("IsActive")
             .IsRequired();

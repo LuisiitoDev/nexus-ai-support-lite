@@ -12,6 +12,9 @@ public sealed class TenantRepository(IdentityDbContext dbContext) : ITenantRepos
     public async Task<TenantModel?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => await dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 
+    public async Task<TenantModel?> GetByEntraTenantIdAsync(string entraTenantId, CancellationToken cancellationToken = default)
+        => await dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.EntraTenantId == entraTenantId, cancellationToken);
+
     public async Task<TenantModel> CreateAsync(TenantModel tenant, CancellationToken cancellationToken = default)
     {
         await dbContext.Tenants.AddAsync(tenant, cancellationToken);
@@ -26,6 +29,7 @@ public sealed class TenantRepository(IdentityDbContext dbContext) : ITenantRepos
             .Where(t => t.Id == tenant.Id)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(t => t.Name, tenant.Name)
+                .SetProperty(t => t.EntraTenantId, tenant.EntraTenantId)
                 .SetProperty(t => t.IsActive, tenant.IsActive)
                 .SetProperty(t => t.UpdateAt, DateTime.Now), cancellationToken);
     }

@@ -22,6 +22,11 @@ public static class TenantEndpoints
             .WithSummary(OpenApiMetadata.Tenants.GetByIdSummary)
             .WithDescription(OpenApiMetadata.Tenants.GetByIdDescription);
 
+        group.MapGet(ApiRoutes.Tenants.ByEntraTenantId, GetByEntraTenantIdAsync)
+            .WithName(OpenApiMetadata.Tenants.GetByEntraTenantIdName)
+            .WithSummary(OpenApiMetadata.Tenants.GetByEntraTenantIdSummary)
+            .WithDescription(OpenApiMetadata.Tenants.GetByEntraTenantIdDescription);
+
         group.MapPost("/", CreateAsync)
             .WithName(OpenApiMetadata.Tenants.CreateName)
             .WithSummary(OpenApiMetadata.Tenants.CreateSummary)
@@ -48,6 +53,13 @@ public static class TenantEndpoints
         Guid id, ITenantService tenantService, CancellationToken cancellationToken)
     {
         var tenant = await tenantService.GetByIdAsync(id, cancellationToken);
+        return tenant is null ? TypedResults.NotFound() : TypedResults.Ok(tenant);
+    }
+
+    private static async Task<Results<Ok<TenantDto>, NotFound>> GetByEntraTenantIdAsync(
+        string entraTenantId, ITenantService tenantService, CancellationToken cancellationToken)
+    {
+        var tenant = await tenantService.GetByEntraTenantIdAsync(entraTenantId, cancellationToken);
         return tenant is null ? TypedResults.NotFound() : TypedResults.Ok(tenant);
     }
 

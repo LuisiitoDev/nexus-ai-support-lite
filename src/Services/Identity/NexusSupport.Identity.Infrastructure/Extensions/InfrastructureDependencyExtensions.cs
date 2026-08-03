@@ -20,9 +20,9 @@ public static class InfrastructureDependencyExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<ITenantMembershipRepository, TenantMembershipRepository>();
-        services.AddScoped<IIdentityProviderRepository, IdentityProviderRepository>();
         services.AddScoped<IRolRepository, RolRepository>();
         services.AddScoped<IMembershipRoleRepository, MembershipRoleRepository>();
+        services.AddScoped<IUserProvisioningRepository, UserProvisioningRepository>();
 
         return services;
     }

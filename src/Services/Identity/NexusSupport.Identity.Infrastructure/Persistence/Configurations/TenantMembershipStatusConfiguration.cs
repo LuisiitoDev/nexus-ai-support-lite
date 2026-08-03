@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using NexusSupport.Identity.Domain.Constants;
 using NexusSupport.Identity.Domain.Models;
 
 namespace NexusSupport.Identity.Infrastructure.Persistence.Configurations;
@@ -20,5 +21,9 @@ internal sealed class TenantMembershipStatusConfiguration : IEntityTypeConfigura
             .HasColumnName("Name")
             .HasMaxLength(250)
             .IsRequired();
+
+        builder.HasData(
+            new TenantMembershipStatusModel { Id = TenantMembershipStatusCodes.EnabledId, Name = TenantMembershipStatusCodes.Enabled },
+            new TenantMembershipStatusModel { Id = TenantMembershipStatusCodes.DisabledId, Name = TenantMembershipStatusCodes.Disabled });
     }
 }

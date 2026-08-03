@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using NexusSupport.Identity.Api.Constants;
 using NexusSupport.Identity.Application.Dtos;
 using NexusSupport.Identity.Application.Interfaces;
+using NexusSupport.Identity.Domain.Models;
 
 namespace NexusSupport.Identity.Api.Endpoints;
 
@@ -31,6 +32,11 @@ public static class UserEndpoints
             .WithName(OpenApiMetadata.Users.CreateName)
             .WithSummary(OpenApiMetadata.Users.CreateSummary)
             .WithDescription(OpenApiMetadata.Users.CreateDescription);
+
+        group.MapPost(ApiRoutes.Users.Provision, ProvisionAsync)
+            .WithName(OpenApiMetadata.Users.ProvisionName)
+            .WithSummary(OpenApiMetadata.Users.ProvisionSummary)
+            .WithDescription(OpenApiMetadata.Users.ProvisionDescription);
 
         group.MapPut("/", UpdateAsync)
             .WithName(OpenApiMetadata.Users.UpdateName)
@@ -68,6 +74,22 @@ public static class UserEndpoints
     {
         var created = await userService.CreateAsync(user, cancellationToken);
         return TypedResults.Created($"{ApiRoutes.Users.Group}/{created.Id}", created);
+    }
+
+    private static async Task<Results<Created<ProvisionUserResultDto>, Ok<ProvisionUserResultDto>, ProblemHttpResult>> ProvisionAsync(
+        ProvisionUserRequestDto request, IUserProvisioningService provisioningService, CancellationToken cancellationToken)
+    {
+        var result = await provisioningService.ProvisionAsync(request, cancellationToken);
+
+        return result.Outcome switch
+        {
+            ProvisioningOutcome.Created => TypedResults.Created($"{ApiRoutes.Users.Group}/{result.UserId}", result),
+            ProvisioningOutcome.Existing => TypedResults.Ok(result),
+            _ => TypedResults.Problem(
+                title: "Access denied",
+                detail: "The organization or user is unknown, disabled, or not enabled for access.",
+                statusCode: StatusCodes.Status403Forbidden)
+        };
     }
 
     private static async Task<NoContent> UpdateAsync(

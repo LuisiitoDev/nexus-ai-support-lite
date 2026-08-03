@@ -17,7 +17,6 @@ public static class OpenApiMetadata
         public const string Users = "Users";
         public const string Tenants = "Tenants";
         public const string TenantMemberships = "Tenant Memberships";
-        public const string IdentityProviders = "Identity Providers";
         public const string Roles = "Roles";
         public const string MembershipRoles = "Membership Roles";
     }
@@ -41,6 +40,13 @@ public static class OpenApiMetadata
         public const string CreateSummary = "Creates a user";
         public const string CreateDescription = "Provisions a new local user record.";
 
+        public const string ProvisionName = "ProvisionUser";
+        public const string ProvisionSummary = "Resolves or provisions a user on valid sign-in";
+        public const string ProvisionDescription =
+            "Called by the Gateway after a validated Entra sign-in. Resolves the organization from the Entra tenant id, " +
+            "then returns the existing local user and roles or creates one with the default Requester role on first sign-in. " +
+            "Denies access with a generic problem response when the organization or user is unknown or disabled.";
+
         public const string UpdateName = "UpdateUser";
         public const string UpdateSummary = "Updates a user";
         public const string UpdateDescription =
@@ -61,15 +67,22 @@ public static class OpenApiMetadata
         public const string GetByIdSummary = "Gets an organization by id";
         public const string GetByIdDescription = "Returns a single organization (tenant) by its Nexus-local identifier.";
 
+        public const string GetByEntraTenantIdName = "GetTenantByEntraTenantId";
+        public const string GetByEntraTenantIdSummary = "Resolves an organization from its Entra tenant id";
+        public const string GetByEntraTenantIdDescription =
+            "Returns the organization registered for the given Microsoft Entra tenant id (the validated `tid` claim). " +
+            "Used by the Gateway to resolve the trusted tenant context; the caller must also check IsActive.";
+
         public const string CreateName = "CreateTenant";
         public const string CreateSummary = "Registers an organization";
         public const string CreateDescription =
-            "Registers a new organization (tenant). The organization is disabled until a Nexus Global Administrator enables it.";
+            "Registers a new organization (tenant) and records its Microsoft Entra tenant id. " +
+            "The organization is disabled until a Nexus Global Administrator enables it.";
 
         public const string UpdateName = "UpdateTenant";
         public const string UpdateSummary = "Updates an organization";
         public const string UpdateDescription =
-            "Updates an existing organization's name or enabled status. The organization identifier travels in the payload.";
+            "Updates an existing organization's name, Entra tenant id, or enabled status. The organization identifier travels in the payload.";
 
         public const string DeleteName = "DeleteTenant";
         public const string DeleteSummary = "Deletes an organization";
@@ -107,36 +120,6 @@ public static class OpenApiMetadata
         public const string DeleteName = "DeleteTenantMembership";
         public const string DeleteSummary = "Deletes a tenant membership";
         public const string DeleteDescription = "Permanently removes the link between a user and an organization.";
-    }
-
-    public static class IdentityProviders
-    {
-        public const string GetAllName = "GetIdentityProviders";
-        public const string GetAllSummary = "Lists identity providers";
-        public const string GetAllDescription = "Returns every configured identity provider across all organizations.";
-
-        public const string GetByIdName = "GetIdentityProviderById";
-        public const string GetByIdSummary = "Gets an identity provider by id";
-        public const string GetByIdDescription =
-            "Returns a single identity provider configuration by its Nexus-local identifier.";
-
-        public const string GetByTenantName = "GetIdentityProvidersByTenant";
-        public const string GetByTenantSummary = "Lists an organization's identity providers";
-        public const string GetByTenantDescription =
-            "Returns every identity provider configured for a given organization (tenant).";
-
-        public const string CreateName = "CreateIdentityProvider";
-        public const string CreateSummary = "Creates an identity provider";
-        public const string CreateDescription = "Registers a new identity provider configuration for an organization.";
-
-        public const string UpdateName = "UpdateIdentityProvider";
-        public const string UpdateSummary = "Updates an identity provider";
-        public const string UpdateDescription =
-            "Updates an existing identity provider's configuration or enabled status. The provider identifier travels in the payload.";
-
-        public const string DeleteName = "DeleteIdentityProvider";
-        public const string DeleteSummary = "Deletes an identity provider";
-        public const string DeleteDescription = "Permanently removes an identity provider configuration.";
     }
 
     public static class Roles

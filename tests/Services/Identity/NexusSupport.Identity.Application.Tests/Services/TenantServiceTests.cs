@@ -49,6 +49,33 @@ public class TenantServiceTests
     }
 
     [Fact]
+    public async Task GetByEntraTenantIdAsync_ReturnsMappedTenant_WhenFound()
+    {
+        var model = CreateModel();
+        var repository = new Mock<ITenantRepository>();
+        repository.Setup(r => r.GetByEntraTenantIdAsync(model.EntraTenantId, It.IsAny<CancellationToken>())).ReturnsAsync(model);
+        var service = new TenantService(repository.Object);
+
+        var dto = await service.GetByEntraTenantIdAsync(model.EntraTenantId);
+
+        Assert.NotNull(dto);
+        AssertEqual(model, dto);
+    }
+
+    [Fact]
+    public async Task GetByEntraTenantIdAsync_ReturnsNull_WhenNotFound()
+    {
+        var repository = new Mock<ITenantRepository>();
+        repository.Setup(r => r.GetByEntraTenantIdAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((TenantModel?)null);
+        var service = new TenantService(repository.Object);
+
+        var dto = await service.GetByEntraTenantIdAsync("unknown-tenant");
+
+        Assert.Null(dto);
+    }
+
+    [Fact]
     public async Task CreateAsync_PassesMappedModelToRepositoryAndReturnsMappedResult()
     {
         var dto = CreateDto();
@@ -94,6 +121,7 @@ public class TenantServiceTests
     {
         Id = Guid.NewGuid(),
         Name = "Acme Corp",
+        EntraTenantId = "11111111-1111-1111-1111-111111111111",
         IsActive = true,
         CreateAt = new DateTime(2026, 1, 2),
         UpdateAt = new DateTime(2026, 1, 3)
@@ -103,19 +131,21 @@ public class TenantServiceTests
     {
         Id = Guid.NewGuid(),
         Name = "Globex Corp",
+        EntraTenantId = "22222222-2222-2222-2222-222222222222",
         IsActive = false,
         CreateAt = new DateTime(2026, 2, 2),
         UpdateAt = new DateTime(2026, 2, 3)
     };
 
     private static bool MatchesDto(TenantModel model, TenantDto dto) =>
-        model.Id == dto.Id && model.Name == dto.Name && model.IsActive == dto.IsActive &&
-        model.CreateAt == dto.CreateAt && model.UpdateAt == dto.UpdateAt;
+        model.Id == dto.Id && model.Name == dto.Name && model.EntraTenantId == dto.EntraTenantId &&
+        model.IsActive == dto.IsActive && model.CreateAt == dto.CreateAt && model.UpdateAt == dto.UpdateAt;
 
     private static void AssertEqual(TenantModel model, TenantDto dto)
     {
         Assert.Equal(model.Id, dto.Id);
         Assert.Equal(model.Name, dto.Name);
+        Assert.Equal(model.EntraTenantId, dto.EntraTenantId);
         Assert.Equal(model.IsActive, dto.IsActive);
         Assert.Equal(model.CreateAt, dto.CreateAt);
         Assert.Equal(model.UpdateAt, dto.UpdateAt);
@@ -125,6 +155,7 @@ public class TenantServiceTests
     {
         Assert.Equal(expected.Id, actual.Id);
         Assert.Equal(expected.Name, actual.Name);
+        Assert.Equal(expected.EntraTenantId, actual.EntraTenantId);
         Assert.Equal(expected.IsActive, actual.IsActive);
         Assert.Equal(expected.CreateAt, actual.CreateAt);
         Assert.Equal(expected.UpdateAt, actual.UpdateAt);

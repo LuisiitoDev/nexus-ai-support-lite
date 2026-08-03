@@ -11,9 +11,9 @@ public static class ApplicationDependencyExtensions
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<ITenantMembershipService, TenantMembershipService>();
-        services.AddScoped<IIdentityProviderService, IdentityProviderService>();
         services.AddScoped<IRolService, RolService>();
         services.AddScoped<IMembershipRoleService, MembershipRoleService>();
+        services.AddScoped<IUserProvisioningService, UserProvisioningService>();
 
         return services;
     }

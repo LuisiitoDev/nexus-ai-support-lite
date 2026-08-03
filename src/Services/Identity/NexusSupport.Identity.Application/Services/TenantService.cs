@@ -13,6 +13,9 @@ public sealed class TenantService(ITenantRepository repository) : ITenantService
     public async Task<TenantDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
         => MapNullable(await repository.GetByIdAsync(id, cancellationToken));
 
+    public async Task<TenantDto?> GetByEntraTenantIdAsync(string entraTenantId, CancellationToken cancellationToken = default)
+        => MapNullable(await repository.GetByEntraTenantIdAsync(entraTenantId, cancellationToken));
+
     public async Task<TenantDto> CreateAsync(TenantDto tenant, CancellationToken cancellationToken = default)
         => Map(await repository.CreateAsync(Map(tenant), cancellationToken));
 
@@ -26,6 +29,7 @@ public sealed class TenantService(ITenantRepository repository) : ITenantService
     {
         Id = model.Id,
         Name = model.Name,
+        EntraTenantId = model.EntraTenantId,
         IsActive = model.IsActive,
         CreateAt = model.CreateAt,
         UpdateAt = model.UpdateAt
@@ -35,6 +39,7 @@ public sealed class TenantService(ITenantRepository repository) : ITenantService
     {
         Id = dto.Id,
         Name = dto.Name,
+        EntraTenantId = dto.EntraTenantId,
         IsActive = dto.IsActive,
         CreateAt = dto.CreateAt,
         UpdateAt = dto.UpdateAt

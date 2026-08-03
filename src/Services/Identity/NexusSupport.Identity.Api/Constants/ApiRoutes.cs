@@ -13,12 +13,14 @@ public static class ApiRoutes
         public const string Group = Base + "/users";
         public const string ById = "/{id:guid}";
         public const string ByExternalSubject = "/external-subject";
+        public const string Provision = "/provision";
     }
 
     public static class Tenants
     {
         public const string Group = Base + "/tenants";
         public const string ById = "/{id:guid}";
+        public const string ByEntraTenantId = "/by-entra-tenant/{entraTenantId}";
     }
 
     public static class TenantMemberships
@@ -27,13 +29,6 @@ public static class ApiRoutes
         public const string ById = "/{id:guid}";
         public const string ByUser = "/by-user/{userId:guid}";
         public const string ByTenantAndUser = "/by-tenant/{tenantId:guid}/by-user/{userId:guid}";
-    }
-
-    public static class IdentityProviders
-    {
-        public const string Group = Base + "/identity-providers";
-        public const string ById = "/{id:guid}";
-        public const string ByTenant = "/by-tenant/{tenantId:guid}";
     }
 
     public static class Roles
