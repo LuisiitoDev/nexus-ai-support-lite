@@ -13,7 +13,8 @@ internal sealed class TenantConfiguration : IEntityTypeConfiguration<TenantModel
         builder.HasKey(t => t.Id);
 
         builder.Property(t => t.Id)
-            .HasColumnName("Id");
+            .HasColumnName("Id")
+            .HasDefaultValueSql("NEWID()", "DF_Tenant_Id");
 
         builder.Property(t => t.Name)
             .HasColumnName("Name")

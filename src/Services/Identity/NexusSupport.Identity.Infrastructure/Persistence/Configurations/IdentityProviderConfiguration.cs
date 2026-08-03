@@ -13,7 +13,8 @@ internal sealed class IdentityProviderConfiguration : IEntityTypeConfiguration<I
         builder.HasKey(i => i.Id);
 
         builder.Property(i => i.Id)
-            .HasColumnName("Id");
+            .HasColumnName("Id")
+            .HasDefaultValueSql("NEWID()", "DF_IdentityProvider_Id");
 
         builder.Property(i => i.TenantId)
             .HasColumnName("TenantId")

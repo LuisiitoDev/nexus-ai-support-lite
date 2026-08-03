@@ -13,7 +13,8 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<UserModel>
         builder.HasKey(u => u.Id);
 
         builder.Property(u => u.Id)
-            .HasColumnName("Id");
+            .HasColumnName("Id")
+            .HasDefaultValueSql("NEWID()", "DF_User_Id");
 
         builder.Property(u => u.Issuer)
             .HasColumnName("Issuer")
