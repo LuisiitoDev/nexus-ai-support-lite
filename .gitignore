@@ -430,3 +430,4 @@ FodyWeavers.xsd
 
 # Claude Code local settings
 .claude/
+dotnet/runfile-discovery/nexus-ai-support-lite-8cad4bdc7d7a8ce6afe1545d7230e9af2766675df13bb58b341c42156db52e11/cache.staging.json
