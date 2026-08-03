@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NexusSupport.Identity.Application\NexusSupport.Identity.Application.csproj" />
     <ProjectReference Include="..\NexusSupport.Identity.Infrastructure\NexusSupport.Identity.Infrastructure.csproj" />
   </ItemGroup>
 
