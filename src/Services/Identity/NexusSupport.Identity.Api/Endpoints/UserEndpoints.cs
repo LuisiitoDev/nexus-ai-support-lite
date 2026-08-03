@@ -13,34 +13,34 @@ public static class UserEndpoints
             .WithTags(OpenApiMetadata.Tags.Users);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetUsers")
-            .WithSummary("Lists users")
-            .WithDescription("Returns every locally provisioned user across all tenants.");
+            .WithName(OpenApiMetadata.Users.GetAllName)
+            .WithSummary(OpenApiMetadata.Users.GetAllSummary)
+            .WithDescription(OpenApiMetadata.Users.GetAllDescription);
 
         group.MapGet(ApiRoutes.Users.ById, GetByIdAsync)
-            .WithName("GetUserById")
-            .WithSummary("Gets a user by id")
-            .WithDescription("Returns a single user by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.Users.GetByIdName)
+            .WithSummary(OpenApiMetadata.Users.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.Users.GetByIdDescription);
 
         group.MapGet(ApiRoutes.Users.ByExternalSubject, GetByExternalSubjectAsync)
-            .WithName("GetUserByExternalSubject")
-            .WithSummary("Gets a user by external subject")
-            .WithDescription("Resolves the local user provisioned for a validated Entra issuer and subject identifier, per ADR-002.");
+            .WithName(OpenApiMetadata.Users.GetByExternalSubjectName)
+            .WithSummary(OpenApiMetadata.Users.GetByExternalSubjectSummary)
+            .WithDescription(OpenApiMetadata.Users.GetByExternalSubjectDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateUser")
-            .WithSummary("Creates a user")
-            .WithDescription("Provisions a new local user record.");
+            .WithName(OpenApiMetadata.Users.CreateName)
+            .WithSummary(OpenApiMetadata.Users.CreateSummary)
+            .WithDescription(OpenApiMetadata.Users.CreateDescription);
 
-        group.MapPut(ApiRoutes.Users.ById, UpdateAsync)
-            .WithName("UpdateUser")
-            .WithSummary("Updates a user")
-            .WithDescription("Updates an existing user's profile, status, or last login.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.Users.UpdateName)
+            .WithSummary(OpenApiMetadata.Users.UpdateSummary)
+            .WithDescription(OpenApiMetadata.Users.UpdateDescription);
 
         group.MapDelete(ApiRoutes.Users.ById, DeleteAsync)
-            .WithName("DeleteUser")
-            .WithSummary("Deletes a user")
-            .WithDescription("Permanently removes a local user record.");
+            .WithName(OpenApiMetadata.Users.DeleteName)
+            .WithSummary(OpenApiMetadata.Users.DeleteSummary)
+            .WithDescription(OpenApiMetadata.Users.DeleteDescription);
 
         return app;
     }
@@ -71,9 +71,8 @@ public static class UserEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        Guid id, UserDto user, IUserService userService, CancellationToken cancellationToken)
+        UserDto user, IUserService userService, CancellationToken cancellationToken)
     {
-        user.Id = id;
         await userService.UpdateAsync(user, cancellationToken);
         return TypedResults.NoContent();
     }

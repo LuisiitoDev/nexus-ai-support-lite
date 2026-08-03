@@ -13,34 +13,34 @@ public static class MembershipRoleEndpoints
             .WithTags(OpenApiMetadata.Tags.MembershipRoles);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetMembershipRoles")
-            .WithSummary("Lists membership role assignments")
-            .WithDescription("Returns every product role assigned to a tenant membership.");
+            .WithName(OpenApiMetadata.MembershipRoles.GetAllName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.GetAllSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.GetAllDescription);
 
         group.MapGet(ApiRoutes.MembershipRoles.ById, GetByIdAsync)
-            .WithName("GetMembershipRoleById")
-            .WithSummary("Gets a membership role assignment by id")
-            .WithDescription("Returns a single membership role assignment by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.MembershipRoles.GetByIdName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.GetByIdDescription);
 
         group.MapGet(ApiRoutes.MembershipRoles.ByTenantMembership, GetByTenantMembershipIdAsync)
-            .WithName("GetMembershipRolesByTenantMembership")
-            .WithSummary("Lists the roles assigned to a tenant membership")
-            .WithDescription("Returns every product role assigned to a given tenant membership.");
+            .WithName(OpenApiMetadata.MembershipRoles.GetByTenantMembershipName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.GetByTenantMembershipSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.GetByTenantMembershipDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateMembershipRole")
-            .WithSummary("Assigns a role to a tenant membership")
-            .WithDescription("Assigns a Nexus-managed product role to a tenant membership, e.g. the default Requester role granted on first sign-in per ADR-002.");
+            .WithName(OpenApiMetadata.MembershipRoles.CreateName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.CreateSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.CreateDescription);
 
-        group.MapPut(ApiRoutes.MembershipRoles.ById, UpdateAsync)
-            .WithName("UpdateMembershipRole")
-            .WithSummary("Updates a membership role assignment")
-            .WithDescription("Updates an existing membership role assignment.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.MembershipRoles.UpdateName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.UpdateSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.UpdateDescription);
 
         group.MapDelete(ApiRoutes.MembershipRoles.ById, DeleteAsync)
-            .WithName("DeleteMembershipRole")
-            .WithSummary("Removes a role from a tenant membership")
-            .WithDescription("Permanently removes a product role assignment from a tenant membership.");
+            .WithName(OpenApiMetadata.MembershipRoles.DeleteName)
+            .WithSummary(OpenApiMetadata.MembershipRoles.DeleteSummary)
+            .WithDescription(OpenApiMetadata.MembershipRoles.DeleteDescription);
 
         return app;
     }
@@ -68,9 +68,8 @@ public static class MembershipRoleEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        int id, MembershipRoleDto membershipRole, IMembershipRoleService membershipRoleService, CancellationToken cancellationToken)
+        MembershipRoleDto membershipRole, IMembershipRoleService membershipRoleService, CancellationToken cancellationToken)
     {
-        membershipRole.Id = id;
         await membershipRoleService.UpdateAsync(membershipRole, cancellationToken);
         return TypedResults.NoContent();
     }

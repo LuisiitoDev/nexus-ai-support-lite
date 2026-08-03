@@ -13,34 +13,34 @@ public static class IdentityProviderEndpoints
             .WithTags(OpenApiMetadata.Tags.IdentityProviders);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetIdentityProviders")
-            .WithSummary("Lists identity providers")
-            .WithDescription("Returns every configured identity provider across all organizations.");
+            .WithName(OpenApiMetadata.IdentityProviders.GetAllName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.GetAllSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.GetAllDescription);
 
         group.MapGet(ApiRoutes.IdentityProviders.ById, GetByIdAsync)
-            .WithName("GetIdentityProviderById")
-            .WithSummary("Gets an identity provider by id")
-            .WithDescription("Returns a single identity provider configuration by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.IdentityProviders.GetByIdName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.GetByIdDescription);
 
         group.MapGet(ApiRoutes.IdentityProviders.ByTenant, GetByTenantIdAsync)
-            .WithName("GetIdentityProvidersByTenant")
-            .WithSummary("Lists an organization's identity providers")
-            .WithDescription("Returns every identity provider configured for a given organization (tenant).");
+            .WithName(OpenApiMetadata.IdentityProviders.GetByTenantName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.GetByTenantSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.GetByTenantDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateIdentityProvider")
-            .WithSummary("Creates an identity provider")
-            .WithDescription("Registers a new identity provider configuration for an organization.");
+            .WithName(OpenApiMetadata.IdentityProviders.CreateName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.CreateSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.CreateDescription);
 
-        group.MapPut(ApiRoutes.IdentityProviders.ById, UpdateAsync)
-            .WithName("UpdateIdentityProvider")
-            .WithSummary("Updates an identity provider")
-            .WithDescription("Updates an existing identity provider's configuration or enabled status.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.IdentityProviders.UpdateName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.UpdateSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.UpdateDescription);
 
         group.MapDelete(ApiRoutes.IdentityProviders.ById, DeleteAsync)
-            .WithName("DeleteIdentityProvider")
-            .WithSummary("Deletes an identity provider")
-            .WithDescription("Permanently removes an identity provider configuration.");
+            .WithName(OpenApiMetadata.IdentityProviders.DeleteName)
+            .WithSummary(OpenApiMetadata.IdentityProviders.DeleteSummary)
+            .WithDescription(OpenApiMetadata.IdentityProviders.DeleteDescription);
 
         return app;
     }
@@ -68,9 +68,8 @@ public static class IdentityProviderEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        Guid id, IdentityProviderDto identityProvider, IIdentityProviderService identityProviderService, CancellationToken cancellationToken)
+        IdentityProviderDto identityProvider, IIdentityProviderService identityProviderService, CancellationToken cancellationToken)
     {
-        identityProvider.Id = id;
         await identityProviderService.UpdateAsync(identityProvider, cancellationToken);
         return TypedResults.NoContent();
     }

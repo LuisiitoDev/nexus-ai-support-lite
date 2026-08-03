@@ -27,7 +27,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<UserModel>
             .IsRequired();
 
         // OIDC subject identifiers are only unique within their issuer, so the
-        // uniqueness scope must include it (see ADR-002).
+        // uniqueness scope must include it.
         builder.HasIndex(u => new { u.Issuer, u.ExternalSubjectId })
             .IsUnique();
 

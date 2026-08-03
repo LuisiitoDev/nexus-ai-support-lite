@@ -13,29 +13,29 @@ public static class TenantEndpoints
             .WithTags(OpenApiMetadata.Tags.Tenants);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetTenants")
-            .WithSummary("Lists organizations")
-            .WithDescription("Returns every organization (tenant) registered in Nexus.");
+            .WithName(OpenApiMetadata.Tenants.GetAllName)
+            .WithSummary(OpenApiMetadata.Tenants.GetAllSummary)
+            .WithDescription(OpenApiMetadata.Tenants.GetAllDescription);
 
         group.MapGet(ApiRoutes.Tenants.ById, GetByIdAsync)
-            .WithName("GetTenantById")
-            .WithSummary("Gets an organization by id")
-            .WithDescription("Returns a single organization (tenant) by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.Tenants.GetByIdName)
+            .WithSummary(OpenApiMetadata.Tenants.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.Tenants.GetByIdDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateTenant")
-            .WithSummary("Registers an organization")
-            .WithDescription("Registers a new organization (tenant), per the onboarding flow in ADR-002. The organization is disabled until a Nexus Global Administrator enables it.");
+            .WithName(OpenApiMetadata.Tenants.CreateName)
+            .WithSummary(OpenApiMetadata.Tenants.CreateSummary)
+            .WithDescription(OpenApiMetadata.Tenants.CreateDescription);
 
-        group.MapPut(ApiRoutes.Tenants.ById, UpdateAsync)
-            .WithName("UpdateTenant")
-            .WithSummary("Updates an organization")
-            .WithDescription("Updates an existing organization's name or enabled status.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.Tenants.UpdateName)
+            .WithSummary(OpenApiMetadata.Tenants.UpdateSummary)
+            .WithDescription(OpenApiMetadata.Tenants.UpdateDescription);
 
         group.MapDelete(ApiRoutes.Tenants.ById, DeleteAsync)
-            .WithName("DeleteTenant")
-            .WithSummary("Deletes an organization")
-            .WithDescription("Permanently removes an organization (tenant) record.");
+            .WithName(OpenApiMetadata.Tenants.DeleteName)
+            .WithSummary(OpenApiMetadata.Tenants.DeleteSummary)
+            .WithDescription(OpenApiMetadata.Tenants.DeleteDescription);
 
         return app;
     }
@@ -59,9 +59,8 @@ public static class TenantEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        Guid id, TenantDto tenant, ITenantService tenantService, CancellationToken cancellationToken)
+        TenantDto tenant, ITenantService tenantService, CancellationToken cancellationToken)
     {
-        tenant.Id = id;
         await tenantService.UpdateAsync(tenant, cancellationToken);
         return TypedResults.NoContent();
     }

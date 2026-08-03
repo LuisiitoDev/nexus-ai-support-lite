@@ -13,39 +13,39 @@ public static class TenantMembershipEndpoints
             .WithTags(OpenApiMetadata.Tags.TenantMemberships);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetTenantMemberships")
-            .WithSummary("Lists tenant memberships")
-            .WithDescription("Returns every membership linking a user to an organization.");
+            .WithName(OpenApiMetadata.TenantMemberships.GetAllName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.GetAllSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.GetAllDescription);
 
         group.MapGet(ApiRoutes.TenantMemberships.ById, GetByIdAsync)
-            .WithName("GetTenantMembershipById")
-            .WithSummary("Gets a tenant membership by id")
-            .WithDescription("Returns a single membership by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.TenantMemberships.GetByIdName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.GetByIdDescription);
 
         group.MapGet(ApiRoutes.TenantMemberships.ByUser, GetByUserIdAsync)
-            .WithName("GetTenantMembershipsByUser")
-            .WithSummary("Lists a user's tenant memberships")
-            .WithDescription("Returns every organization a given user belongs to.");
+            .WithName(OpenApiMetadata.TenantMemberships.GetByUserName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.GetByUserSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.GetByUserDescription);
 
         group.MapGet(ApiRoutes.TenantMemberships.ByTenantAndUser, GetByTenantAndUserAsync)
-            .WithName("GetTenantMembershipByTenantAndUser")
-            .WithSummary("Gets a user's membership within an organization")
-            .WithDescription("Returns the membership linking the given user to the given organization, if one exists.");
+            .WithName(OpenApiMetadata.TenantMemberships.GetByTenantAndUserName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.GetByTenantAndUserSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.GetByTenantAndUserDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateTenantMembership")
-            .WithSummary("Creates a tenant membership")
-            .WithDescription("Links a user to an organization, e.g. on first valid sign-in as described in ADR-002.");
+            .WithName(OpenApiMetadata.TenantMemberships.CreateName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.CreateSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.CreateDescription);
 
-        group.MapPut(ApiRoutes.TenantMemberships.ById, UpdateAsync)
-            .WithName("UpdateTenantMembership")
-            .WithSummary("Updates a tenant membership")
-            .WithDescription("Updates the status of an existing tenant membership.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.TenantMemberships.UpdateName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.UpdateSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.UpdateDescription);
 
         group.MapDelete(ApiRoutes.TenantMemberships.ById, DeleteAsync)
-            .WithName("DeleteTenantMembership")
-            .WithSummary("Deletes a tenant membership")
-            .WithDescription("Permanently removes the link between a user and an organization.");
+            .WithName(OpenApiMetadata.TenantMemberships.DeleteName)
+            .WithSummary(OpenApiMetadata.TenantMemberships.DeleteSummary)
+            .WithDescription(OpenApiMetadata.TenantMemberships.DeleteDescription);
 
         return app;
     }
@@ -80,9 +80,8 @@ public static class TenantMembershipEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        Guid id, TenantMembershipDto tenantMembership, ITenantMembershipService tenantMembershipService, CancellationToken cancellationToken)
+        TenantMembershipDto tenantMembership, ITenantMembershipService tenantMembershipService, CancellationToken cancellationToken)
     {
-        tenantMembership.Id = id;
         await tenantMembershipService.UpdateAsync(tenantMembership, cancellationToken);
         return TypedResults.NoContent();
     }

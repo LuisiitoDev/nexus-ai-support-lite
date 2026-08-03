@@ -13,34 +13,34 @@ public static class RolEndpoints
             .WithTags(OpenApiMetadata.Tags.Roles);
 
         group.MapGet("/", GetAllAsync)
-            .WithName("GetRoles")
-            .WithSummary("Lists product roles")
-            .WithDescription("Returns every Nexus-managed product role (e.g. Requester, Agent, Administrator).");
+            .WithName(OpenApiMetadata.Roles.GetAllName)
+            .WithSummary(OpenApiMetadata.Roles.GetAllSummary)
+            .WithDescription(OpenApiMetadata.Roles.GetAllDescription);
 
         group.MapGet(ApiRoutes.Roles.ById, GetByIdAsync)
-            .WithName("GetRoleById")
-            .WithSummary("Gets a product role by id")
-            .WithDescription("Returns a single product role by its Nexus-local identifier.");
+            .WithName(OpenApiMetadata.Roles.GetByIdName)
+            .WithSummary(OpenApiMetadata.Roles.GetByIdSummary)
+            .WithDescription(OpenApiMetadata.Roles.GetByIdDescription);
 
         group.MapGet(ApiRoutes.Roles.ByCode, GetByCodeAsync)
-            .WithName("GetRoleByCode")
-            .WithSummary("Gets a product role by code")
-            .WithDescription("Returns a single product role by its unique code.");
+            .WithName(OpenApiMetadata.Roles.GetByCodeName)
+            .WithSummary(OpenApiMetadata.Roles.GetByCodeSummary)
+            .WithDescription(OpenApiMetadata.Roles.GetByCodeDescription);
 
         group.MapPost("/", CreateAsync)
-            .WithName("CreateRole")
-            .WithSummary("Creates a product role")
-            .WithDescription("Creates a new Nexus-managed product role.");
+            .WithName(OpenApiMetadata.Roles.CreateName)
+            .WithSummary(OpenApiMetadata.Roles.CreateSummary)
+            .WithDescription(OpenApiMetadata.Roles.CreateDescription);
 
-        group.MapPut(ApiRoutes.Roles.ById, UpdateAsync)
-            .WithName("UpdateRole")
-            .WithSummary("Updates a product role")
-            .WithDescription("Updates an existing product role's name, description, or active status.");
+        group.MapPut("/", UpdateAsync)
+            .WithName(OpenApiMetadata.Roles.UpdateName)
+            .WithSummary(OpenApiMetadata.Roles.UpdateSummary)
+            .WithDescription(OpenApiMetadata.Roles.UpdateDescription);
 
         group.MapDelete(ApiRoutes.Roles.ById, DeleteAsync)
-            .WithName("DeleteRole")
-            .WithSummary("Deletes a product role")
-            .WithDescription("Permanently removes a product role.");
+            .WithName(OpenApiMetadata.Roles.DeleteName)
+            .WithSummary(OpenApiMetadata.Roles.DeleteSummary)
+            .WithDescription(OpenApiMetadata.Roles.DeleteDescription);
 
         return app;
     }
@@ -71,9 +71,8 @@ public static class RolEndpoints
     }
 
     private static async Task<NoContent> UpdateAsync(
-        int id, RolDto rol, IRolService rolService, CancellationToken cancellationToken)
+        RolDto rol, IRolService rolService, CancellationToken cancellationToken)
     {
-        rol.Id = id;
         await rolService.UpdateAsync(rol, cancellationToken);
         return TypedResults.NoContent();
     }
