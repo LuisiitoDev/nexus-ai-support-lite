@@ -1,9 +1,11 @@
+using NexusSupport.Identity.Api.Constants;
+using NexusSupport.Identity.Api.Endpoints;
 using NexusSupport.Identity.Application.Extensions;
 using NexusSupport.Identity.Infrastructure.Extensions;
 using Scalar.AspNetCore;
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(OpenApiMetadata.Document.Name);
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
 
@@ -13,10 +15,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 
-    app.MapScalarApiReference("/docs", options =>
+    app.MapScalarApiReference(OpenApiMetadata.Document.Route, options =>
     {
         options
-            .WithTitle("Nexus Identity")
+            .AddDocument(OpenApiMetadata.Document.Name, OpenApiMetadata.Document.Title)
+            .WithTitle(OpenApiMetadata.Document.Title)
             .WithTheme(ScalarTheme.Mars)
             .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient);
     });
@@ -25,5 +28,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapHealthChecks("/health");
+
+app.MapUserEndpoints();
+app.MapTenantEndpoints();
+app.MapTenantMembershipEndpoints();
+app.MapIdentityProviderEndpoints();
+app.MapRolEndpoints();
+app.MapMembershipRoleEndpoints();
 
 await app.RunAsync();
