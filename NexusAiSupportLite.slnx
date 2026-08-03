@@ -25,6 +25,10 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/Services/" />
   <Folder Name="/tests/Services/Identity/">
+    <Project Path="tests/Services/Identity/NexusSupport.Identity.Application.Tests/NexusSupport.Identity.Application.Tests.csproj" />
     <Project Path="tests/Services/Identity/NexusSupport.Identity.Infrastructure.Tests/NexusSupport.Identity.Infrastructure.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Shared/">
+    <Project Path="tests/Shared/NexusSupport.SourceGenerator.Tests/NexusSupport.SourceGenerator.Tests.csproj" />
   </Folder>
 </Solution>
