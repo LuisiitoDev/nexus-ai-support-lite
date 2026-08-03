@@ -15,6 +15,21 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<UserModel>
         builder.Property(u => u.Id)
             .HasColumnName("Id");
 
+        builder.Property(u => u.Issuer)
+            .HasColumnName("Issuer")
+            .HasMaxLength(250)
+            .IsRequired();
+
+        builder.Property(u => u.ExternalSubjectId)
+            .HasColumnName("ExternalSubjectId")
+            .HasMaxLength(250)
+            .IsRequired();
+
+        // OIDC subject identifiers are only unique within their issuer, so the
+        // uniqueness scope must include it (see ADR-002).
+        builder.HasIndex(u => new { u.Issuer, u.ExternalSubjectId })
+            .IsUnique();
+
         builder.Property(u => u.Email)
             .HasColumnName("Email")
             .HasMaxLength(250)
