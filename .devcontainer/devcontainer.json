@@ -2,7 +2,7 @@
   "name": "Nexus AI Support - .NET 10",
   "image": "mcr.microsoft.com/devcontainers/dotnet:10.0-noble",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
       "version": "latest",
       "moby": true,
       "dockerDashComposeVersion": "v2"
@@ -71,6 +71,6 @@
   "remoteEnv": {
     "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
   },
-  "postCreateCommand": "chmod +x .devcontainer/setup-git-privacy.sh && .devcontainer/setup-git-privacy.sh && (dotnet tool update --global dotnet-ef --version '10.*' || dotnet tool install --global dotnet-ef --version '10.*') && find . -type f \\( -name '*.sln' -o -name '*.slnx' \\) -print -quit | xargs -r dotnet restore && dotnet --info && docker --version && docker compose version",
+  "postCreateCommand": "bash -c 'chmod +x .devcontainer/setup-git-privacy.sh && .devcontainer/setup-git-privacy.sh ; dotnet tool install --global dotnet-ef --version \"10.*\" || dotnet tool update --global dotnet-ef --version \"10.*\" ; find . -type f \\( -name \"*.sln\" -o -name \"*.slnx\" \\) -print -quit | xargs -r dotnet restore ; git config --global user.name \"LuisiitoDev\" && git config --global user.email \"luisasandovalcoder@gmail.com\"'",
   "remoteUser": "vscode"
 }
