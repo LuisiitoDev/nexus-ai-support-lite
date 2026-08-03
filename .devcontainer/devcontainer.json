@@ -19,7 +19,8 @@
         "ms-azuretools.vscode-docker",
         "eamodio.gitlens",
         "editorconfig.editorconfig",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "Anthropic.claude-code"
       ],
       "settings": {
         "dotnet.defaultSolution": "NexusSupport.sln",
