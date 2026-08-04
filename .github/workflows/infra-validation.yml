@@ -42,26 +42,24 @@ jobs:
 
       # Deployment values come from repository configuration: non-sensitive
       # settings from Actions variables, the service key from Actions secrets.
-      # The fallbacks keep this step meaningful on pull requests from forks,
-      # where secrets are not exposed to the workflow.
+      # No defaults are declared here, so a missing or misconfigured value fails
+      # the check rather than being silently substituted.
       - name: Build parameter files
         env:
-          AZURE_LOCATION: ${{ vars.AZURE_LOCATION || 'eastus2' }}
-          AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX || 'ci000' }}
-          IDENTITY_CONTAINER_IMAGE: ${{ vars.IDENTITY_CONTAINER_IMAGE || 'ghcr.io/luisiitodev/nexus-identity:ci' }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID || '00000000-0000-0000-0000-000000000000' }}
-          SQL_ENTRA_ADMINISTRATOR_LOGIN: ${{ vars.SQL_ENTRA_ADMINISTRATOR_LOGIN || 'ci@example.com' }}
-          SQL_ENTRA_ADMINISTRATOR_OBJECT_ID: ${{ vars.SQL_ENTRA_ADMINISTRATOR_OBJECT_ID || '00000000-0000-0000-0000-000000000001' }}
-          SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE: ${{ vars.SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE || 'User' }}
-          SQL_DATABASE_SKU_NAME: ${{ vars.SQL_DATABASE_SKU_NAME || 'GP_S_Gen5' }}
-          SQL_DATABASE_SKU_TIER: ${{ vars.SQL_DATABASE_SKU_TIER || 'GeneralPurpose' }}
-          SQL_DATABASE_SKU_CAPACITY: ${{ vars.SQL_DATABASE_SKU_CAPACITY || '2' }}
-          SQL_DATABASE_USE_FREE_LIMIT: ${{ vars.SQL_DATABASE_USE_FREE_LIMIT || 'true' }}
-          SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR: ${{ vars.SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR || 'AutoPause' }}
-          SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY: ${{ vars.SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY || 'Local' }}
-          SQL_PUBLIC_NETWORK_ACCESS: ${{ vars.SQL_PUBLIC_NETWORK_ACCESS || 'Enabled' }}
-          SQL_ALLOW_AZURE_SERVICES: ${{ vars.SQL_ALLOW_AZURE_SERVICES || 'true' }}
-          INTERNAL_SERVICE_KEY: ${{ secrets.INTERNAL_SERVICE_KEY || 'ci-placeholder-key-0000000000000000' }}
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX }}
+          IDENTITY_CONTAINER_IMAGE: ${{ vars.IDENTITY_CONTAINER_IMAGE }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_LOGIN: ${{ vars.SQL_ENTRA_ADMINISTRATOR_LOGIN }}
+          SQL_ENTRA_ADMINISTRATOR_OBJECT_ID: ${{ vars.SQL_ENTRA_ADMINISTRATOR_OBJECT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE: ${{ vars.SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE }}
+          SQL_DATABASE_SKU_NAME: ${{ vars.SQL_DATABASE_SKU_NAME }}
+          SQL_DATABASE_SKU_TIER: ${{ vars.SQL_DATABASE_SKU_TIER }}
+          SQL_DATABASE_SKU_CAPACITY: ${{ vars.SQL_DATABASE_SKU_CAPACITY }}
+          SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR: ${{ vars.SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR }}
+          SQL_PUBLIC_NETWORK_ACCESS: ${{ vars.SQL_PUBLIC_NETWORK_ACCESS }}
+          SQL_ALLOW_AZURE_SERVICES: ${{ vars.SQL_ALLOW_AZURE_SERVICES }}
+          INTERNAL_SERVICE_KEY: ${{ secrets.INTERNAL_SERVICE_KEY }}
         run: |
           for params in $(find infra -name '*.bicepparam'); do
             echo "::group::$params"

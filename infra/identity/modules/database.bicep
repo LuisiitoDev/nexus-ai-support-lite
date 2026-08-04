@@ -19,23 +19,12 @@ param skuFamily string = 'Gen5'
 @description('Azure SQL database SKU capacity in vCores.')
 param skuCapacity int
 
-@description('Enables the Azure SQL Database free offer: 100,000 vCore-seconds of compute, 32 GB data and 32 GB backup storage per month.')
-param useFreeLimit bool
-
 @description('What happens when the free monthly allowance is exhausted. AutoPause stops the database until the next month; BillOverUsage keeps it online and bills the overage.')
 @allowed([
   'AutoPause'
   'BillOverUsage'
 ])
-param freeLimitExhaustionBehavior string = 'AutoPause'
-
-@description('Backup storage redundancy. Ignored when useFreeLimit is true, because the free offer provides its own included backup storage.')
-@allowed([
-  'Local'
-  'Zone'
-  'Geo'
-])
-param backupStorageRedundancy string = 'Local'
+param freeLimitExhaustionBehavior string
 
 @description('Maximum database size in bytes. The free offer caps data storage at 32 GB.')
 param maxSizeBytes int
@@ -50,17 +39,6 @@ resource server 'Microsoft.Sql/servers@2023-08-01-preview' existing = {
   name: sqlServerName
 }
 
-// The free offer manages its own included backup storage, so
-// requestedBackupStorageRedundancy is only set for paid databases.
-var billingProperties = useFreeLimit
-  ? {
-      useFreeLimit: true
-      freeLimitExhaustionBehavior: freeLimitExhaustionBehavior
-    }
-  : {
-      requestedBackupStorageRedundancy: backupStorageRedundancy
-    }
-
 resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   parent: server
   name: name
@@ -72,14 +50,15 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
     family: skuFamily
     capacity: skuCapacity
   }
-  properties: union(
-    {
-      collation: collation
-      maxSizeBytes: maxSizeBytes
-      zoneRedundant: false
-    },
-    billingProperties
-  )
+  properties: {
+    collation: collation
+    maxSizeBytes: maxSizeBytes
+    zoneRedundant: false
+    // The free offer includes its own backup storage, so
+    // requestedBackupStorageRedundancy is deliberately not set here.
+    useFreeLimit: true
+    freeLimitExhaustionBehavior: freeLimitExhaustionBehavior
+  }
 }
 
 output id string = database.id

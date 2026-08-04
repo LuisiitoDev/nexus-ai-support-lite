@@ -22,13 +22,14 @@ The deployment is sized to stay inside Azure's free allowances. The Container
 App requests 0.25 vCPU and 0.5 GiB and scales to zero, drawing on the
 Consumption plan's monthly free grant of 180,000 vCPU-seconds, 360,000
 GiB-seconds and 2 million requests per subscription. The database uses the Azure
-SQL free offer (`SQL_DATABASE_USE_FREE_LIMIT`), which provides 100,000
+SQL free offer, which provides 100,000
 vCore-seconds of compute plus 32 GB of data and backup storage per month on the
-`GP_S_Gen5` serverless SKU. `SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR`
-decides what happens when that allowance runs out: `AutoPause` stops the
-database until the next month, `BillOverUsage` keeps it online and bills the
-overage. `SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY` applies only to paid
-databases; the free offer includes its own backup storage.
+`GP_S_Gen5` serverless SKU. The free offer is the only
+supported billing mode for this template: `requestedBackupStorageRedundancy` is
+not set, because the free offer includes its own backup storage.
+`SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR` decides what happens when the
+allowance runs out: `AutoPause` stops the database until the next month,
+`BillOverUsage` keeps it online and bills the overage.
 
 The Container App uses a public GHCR image, so the template does not configure
 registry credentials. Its `ConnectionStrings__NexusIdentity` setting contains a
@@ -69,9 +70,7 @@ be committed.
 | `SQL_DATABASE_SKU_NAME` | Explicit database SKU name. `GP_S_Gen5` for the free offer. |
 | `SQL_DATABASE_SKU_TIER` | Explicit database SKU tier. `GeneralPurpose` for the free offer. |
 | `SQL_DATABASE_SKU_CAPACITY` | Explicit numeric SKU capacity in vCores. |
-| `SQL_DATABASE_USE_FREE_LIMIT` | `true` or `false`. `true` enables the Azure SQL free offer. |
-| `SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR` | `AutoPause` or `BillOverUsage`. Applies only when the free offer is enabled. |
-| `SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY` | `Local`, `Zone`, or `Geo`. Ignored when the free offer is enabled. |
+| `SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR` | `AutoPause` or `BillOverUsage`. |
 | `SQL_PUBLIC_NETWORK_ACCESS` | Must be `Enabled` for the current topology. `Disabled` is rejected until the Container Apps environment has VNet integration and SQL has a private endpoint and private DNS. |
 | `SQL_ALLOW_AZURE_SERVICES` | Explicitly `true` or `false`; `true` creates Azure SQL's `0.0.0.0` firewall rule. |
 | `INTERNAL_SERVICE_KEY` | Secret of at least 32 characters that trusted internal callers send in the `X-Internal-Key` header. |

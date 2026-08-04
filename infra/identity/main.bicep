@@ -58,23 +58,12 @@ param sqlDatabaseSkuTier string
 @minValue(0)
 param sqlDatabaseSkuCapacity int
 
-@description('Enables the Azure SQL Database free offer for the Identity database.')
-param sqlDatabaseUseFreeLimit bool
-
-@description('Behaviour when the free monthly allowance is exhausted.')
+@description('Behaviour when the free monthly allowance is exhausted, supplied explicitly per environment.')
 @allowed([
   'AutoPause'
   'BillOverUsage'
 ])
-param sqlDatabaseFreeLimitExhaustionBehavior string = 'AutoPause'
-
-@description('Backup storage redundancy for the Identity database. Ignored when the free offer is enabled.')
-@allowed([
-  'Local'
-  'Zone'
-  'Geo'
-])
-param sqlDatabaseBackupStorageRedundancy string = 'Local'
+param sqlDatabaseFreeLimitExhaustionBehavior string
 
 @description('Maximum size of the Identity database in bytes. The free offer caps data storage at 32 GB.')
 @minValue(104857600)
@@ -173,9 +162,7 @@ module identityDatabase 'modules/database.bicep' = {
     skuName: sqlDatabaseSkuName
     skuTier: sqlDatabaseSkuTier
     skuCapacity: sqlDatabaseSkuCapacity
-    useFreeLimit: sqlDatabaseUseFreeLimit
     freeLimitExhaustionBehavior: sqlDatabaseFreeLimitExhaustionBehavior
-    backupStorageRedundancy: sqlDatabaseBackupStorageRedundancy
     maxSizeBytes: sqlDatabaseMaxSizeBytes
     tags: identityTags
   }
