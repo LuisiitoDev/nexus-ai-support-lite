@@ -49,7 +49,14 @@ if (app.Environment.IsDevelopment())
 
 app.UseForwardedHeaders();
 
-app.UseHttpsRedirection();
+// Container Apps probes call the container directly over HTTP and send no
+// X-Forwarded-Proto, so unconditional HTTPS redirection would answer them with a
+// 307. The platform counts 3xx as success, which would let readiness report
+// healthy without ever running the database check. Exempt the health endpoints;
+// everything else still redirects.
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/health"),
+    branch => branch.UseHttpsRedirection());
 
 // Identity is not publicly reachable (ADR-002): every "/api" request must carry the Gateway's
 // internal shared key. "/health" stays open for the container platform's liveness probe.
