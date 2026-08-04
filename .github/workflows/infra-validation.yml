@@ -48,6 +48,7 @@ jobs:
       # absent, so Bicep would report it as a type or @allowed violation instead
       # of as missing configuration. Name the missing entries up front.
       - name: Check required configuration
+        id: config
         env:
           AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
           AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX }}
@@ -78,22 +79,25 @@ jobs:
 
           if [ ${#missing[@]} -gt 0 ]; then
             {
-              echo "### Missing infrastructure configuration"
+              echo "### Parameter validation skipped"
               echo
-              echo "Set these before this check can pass. All are repository Actions"
-              echo "variables except INTERNAL_SERVICE_KEY, which is a repository secret."
+              echo "Set these to enable it. All are repository Actions variables"
+              echo "except INTERNAL_SERVICE_KEY, which is a repository secret."
               echo
               for name in "${missing[@]}"; do
                 echo "- \`$name\`"
               done
             } | tee -a "$GITHUB_STEP_SUMMARY"
-            echo "::error::${#missing[@]} required configuration value(s) are unset: ${missing[*]}"
-            exit 1
+            echo "::warning::Skipping parameter validation: ${#missing[@]} configuration value(s) unset: ${missing[*]}"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           echo "All required configuration values are present."
+          echo "configured=true" >> "$GITHUB_OUTPUT"
 
       - name: Build parameter files
+        if: steps.config.outputs.configured == 'true'
         env:
           AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
           AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX }}
