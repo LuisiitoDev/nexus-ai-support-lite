@@ -58,17 +58,27 @@ param sqlDatabaseSkuTier string
 @minValue(0)
 param sqlDatabaseSkuCapacity int
 
-@description('Backup storage redundancy for the Identity database, supplied explicitly per environment.')
+@description('Enables the Azure SQL Database free offer for the Identity database.')
+param sqlDatabaseUseFreeLimit bool
+
+@description('Behaviour when the free monthly allowance is exhausted.')
+@allowed([
+  'AutoPause'
+  'BillOverUsage'
+])
+param sqlDatabaseFreeLimitExhaustionBehavior string = 'AutoPause'
+
+@description('Backup storage redundancy for the Identity database. Ignored when the free offer is enabled.')
 @allowed([
   'Local'
   'Zone'
   'Geo'
 ])
-param sqlDatabaseBackupStorageRedundancy string
+param sqlDatabaseBackupStorageRedundancy string = 'Local'
 
-@description('Maximum size of the Identity database in bytes.')
+@description('Maximum size of the Identity database in bytes. The free offer caps data storage at 32 GB.')
 @minValue(104857600)
-param sqlDatabaseMaxSizeBytes int = 2147483648
+param sqlDatabaseMaxSizeBytes int = 34359738368
 
 @description('Controls whether the Azure SQL logical server accepts public network traffic. This topology requires Enabled until a private endpoint and VNet-integrated Container Apps environment are provisioned.')
 @allowed([
@@ -97,17 +107,11 @@ param identityMinReplicas int = 0
 @minValue(1)
 param identityMaxReplicas int = 1
 
-@description('Retention in days for the shared Log Analytics workspace that receives Container Apps logs.')
-@minValue(30)
-@maxValue(730)
-param logAnalyticsRetentionInDays int = 30
-
 var normalizedApplicationName = toLower(applicationName)
 var normalizedEnvironmentName = toLower(environmentName)
 var normalizedSuffix = toLower(resourceNameSuffix)
 var baseName = '${normalizedApplicationName}-${normalizedEnvironmentName}'
 var containerAppsEnvironmentName = 'cae-${baseName}'
-var logAnalyticsWorkspaceName = 'log-${baseName}'
 var identityName = 'ca-${baseName}-identity'
 var identityManagedIdentityName = 'id-${baseName}-identity'
 var sqlServerName = 'sql-${normalizedApplicationName}-${normalizedEnvironmentName}-${normalizedSuffix}'
@@ -127,22 +131,11 @@ var identityTags = union(commonTags, {
   service: 'identity'
 })
 
-module logAnalyticsWorkspace 'modules/log-analytics-workspace.bicep' = {
-  name: 'log-analytics-workspace'
-  params: {
-    name: logAnalyticsWorkspaceName
-    location: location
-    retentionInDays: logAnalyticsRetentionInDays
-    tags: sharedTags
-  }
-}
-
 module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
   name: 'container-apps-environment'
   params: {
     name: containerAppsEnvironmentName
     location: location
-    logAnalyticsWorkspaceName: logAnalyticsWorkspace.outputs.name
     tags: sharedTags
   }
 }
@@ -180,6 +173,8 @@ module identityDatabase 'modules/database.bicep' = {
     skuName: sqlDatabaseSkuName
     skuTier: sqlDatabaseSkuTier
     skuCapacity: sqlDatabaseSkuCapacity
+    useFreeLimit: sqlDatabaseUseFreeLimit
+    freeLimitExhaustionBehavior: sqlDatabaseFreeLimitExhaustionBehavior
     backupStorageRedundancy: sqlDatabaseBackupStorageRedundancy
     maxSizeBytes: sqlDatabaseMaxSizeBytes
     tags: identityTags
@@ -206,7 +201,6 @@ module identityContainerApp 'modules/container-app.bicep' = {
 }
 
 output containerAppsEnvironmentId string = containerAppsEnvironment.outputs.id
-output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.outputs.id
 output identityContainerAppId string = identityContainerApp.outputs.id
 output identityContainerAppName string = identityContainerApp.outputs.name
 output identityManagedIdentityClientId string = identityManagedIdentity.outputs.clientId
