@@ -1,0 +1,25 @@
+# Build context is the repository root so that ProjectReference paths resolve.
+# Keep host build output out of it: copying a host-built obj/ into the image
+# poisons the restore with absolute host paths and invalidates layer caching on
+# every local build.
+**/bin/
+**/obj/
+**/out/
+
+**/.git/
+**/.github/
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.devcontainer/
+
+# Not needed to build or run the service.
+docs/
+infra/
+tests/
+**/*.md
+**/.dockerignore
+**/Dockerfile
+**/.gitignore
+**/.env
+**/*.user
