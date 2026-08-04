@@ -38,7 +38,11 @@ param internalServiceKey string
 @description('Common resource tags.')
 param tags object
 
-var identityConnectionString = 'Server=tcp:${sqlServerFullyQualifiedDomainName},1433;Initial Catalog=${databaseName};Authentication=Active Directory Default;User Id=${managedIdentityClientId};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
+// 'Active Directory Managed Identity' with an explicit User Id selects the
+// attached user-assigned identity directly. 'Active Directory Default' would
+// delegate to DefaultAzureCredential, where User Id is not the selector and
+// combining the two has produced ambiguous authentication behaviour.
+var identityConnectionString = 'Server=tcp:${sqlServerFullyQualifiedDomainName},1433;Initial Catalog=${databaseName};Authentication=Active Directory Managed Identity;User Id=${managedIdentityClientId};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
 
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: name
@@ -94,6 +98,32 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
+          probes: [
+            {
+              type: 'Readiness'
+              httpGet: {
+                path: '/health/ready'
+                port: targetPort
+                scheme: 'HTTP'
+              }
+              initialDelaySeconds: 5
+              periodSeconds: 10
+              timeoutSeconds: 5
+              failureThreshold: 3
+            }
+            {
+              type: 'Liveness'
+              httpGet: {
+                path: '/health/live'
+                port: targetPort
+                scheme: 'HTTP'
+              }
+              initialDelaySeconds: 30
+              periodSeconds: 30
+              timeoutSeconds: 5
+              failureThreshold: 3
+            }
+          ]
         }
       ]
       scale: {

@@ -1,0 +1,68 @@
+name: Infrastructure validation
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-validation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bicep:
+    name: Build and lint Bicep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: |
+          curl -sSLo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/bicep
+          bicep --version
+
+      - name: Build templates
+        run: |
+          for template in $(find infra -name '*.bicep'); do
+            echo "::group::$template"
+            bicep build "$template" --stdout > /dev/null
+            echo "::endgroup::"
+          done
+
+      - name: Lint templates
+        run: bicep lint infra/identity/main.bicep
+
+      # Parameter files read deployment values from the environment. Placeholder
+      # values are enough to prove the file resolves and satisfies the template's
+      # type and @allowed constraints; real values come from repository
+      # configuration at deployment time.
+      - name: Build parameter files
+        env:
+          AZURE_LOCATION: eastus2
+          AZURE_RESOURCE_NAME_SUFFIX: ci000
+          IDENTITY_CONTAINER_IMAGE: ghcr.io/luisiitodev/nexus-identity:ci
+          AZURE_TENANT_ID: 00000000-0000-0000-0000-000000000000
+          SQL_ENTRA_ADMINISTRATOR_LOGIN: ci@example.com
+          SQL_ENTRA_ADMINISTRATOR_OBJECT_ID: 00000000-0000-0000-0000-000000000001
+          SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE: User
+          SQL_DATABASE_SKU_NAME: Basic
+          SQL_DATABASE_SKU_TIER: Basic
+          SQL_DATABASE_SKU_CAPACITY: '5'
+          SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY: Local
+          SQL_PUBLIC_NETWORK_ACCESS: Enabled
+          SQL_ALLOW_AZURE_SERVICES: 'true'
+          IDENTITY_SERVICE_KEY: ci-placeholder-key-0000000000000000
+        run: |
+          for params in $(find infra -name '*.bicepparam'); do
+            echo "::group::$params"
+            bicep build-params "$params" --stdout > /dev/null
+            echo "::endgroup::"
+          done

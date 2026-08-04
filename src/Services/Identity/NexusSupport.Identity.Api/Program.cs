@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 using NexusSupport.Identity.Api.Constants;
 using NexusSupport.Identity.Api.Endpoints;
 using NexusSupport.Identity.Api.Security;
@@ -15,6 +17,15 @@ if (string.IsNullOrWhiteSpace(internalServiceKey) || internalServiceKey.Length <
     throw new InvalidOperationException(
         $"{InternalServiceKeyMiddleware.ConfigurationKey} must be configured with at least 32 characters.");
 }
+
+// Container Apps ingress terminates TLS and forwards plain HTTP to the
+// container, so the original scheme is only visible through X-Forwarded-Proto.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor;
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 builder.Services.AddOpenApi(OpenApiMetadata.Document.Name);
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -36,11 +47,23 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseForwardedHeaders();
+
 app.UseHttpsRedirection();
 
 // Identity is not publicly reachable (ADR-002): every "/api" request must carry the Gateway's
 // internal shared key. "/health" stays open for the container platform's liveness probe.
 app.UseMiddleware<InternalServiceKeyMiddleware>();
+
+// Liveness must not depend on the database: a transient SQL outage should not
+// cause the orchestrator to restart every otherwise-healthy replica.
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false
+});
+
+// Readiness gates ingress traffic on the dependencies the API actually needs.
+app.MapHealthChecks("/health/ready");
 
 app.MapHealthChecks("/health");
 

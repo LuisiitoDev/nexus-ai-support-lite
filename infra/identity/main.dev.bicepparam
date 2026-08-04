@@ -14,6 +14,7 @@ param sqlEntraAdministratorPrincipalType = readEnvironmentVariable('SQL_ENTRA_AD
 param sqlDatabaseSkuName = readEnvironmentVariable('SQL_DATABASE_SKU_NAME')
 param sqlDatabaseSkuTier = readEnvironmentVariable('SQL_DATABASE_SKU_TIER')
 param sqlDatabaseSkuCapacity = int(readEnvironmentVariable('SQL_DATABASE_SKU_CAPACITY'))
+param sqlDatabaseBackupStorageRedundancy = readEnvironmentVariable('SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY')
 param sqlPublicNetworkAccess = readEnvironmentVariable('SQL_PUBLIC_NETWORK_ACCESS')
 param allowAzureServicesToAccessSql = bool(readEnvironmentVariable('SQL_ALLOW_AZURE_SERVICES'))
 param internalServiceKey = readEnvironmentVariable('INTERNAL_SERVICE_KEY')

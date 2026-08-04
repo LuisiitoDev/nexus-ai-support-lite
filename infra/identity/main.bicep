@@ -36,14 +36,39 @@ param sqlEntraAdministratorObjectId string
 param sqlEntraAdministratorPrincipalType string
 
 @description('Azure SQL database SKU name, supplied explicitly per environment.')
+@allowed([
+  'Basic'
+  'S0'
+  'S1'
+  'S2'
+  'GP_S_Gen5'
+  'GP_Gen5'
+])
 param sqlDatabaseSkuName string
 
 @description('Azure SQL database SKU tier, supplied explicitly per environment.')
+@allowed([
+  'Basic'
+  'Standard'
+  'GeneralPurpose'
+])
 param sqlDatabaseSkuTier string
 
 @description('Azure SQL database SKU capacity, supplied explicitly per environment.')
 @minValue(0)
 param sqlDatabaseSkuCapacity int
+
+@description('Backup storage redundancy for the Identity database, supplied explicitly per environment.')
+@allowed([
+  'Local'
+  'Zone'
+  'Geo'
+])
+param sqlDatabaseBackupStorageRedundancy string
+
+@description('Maximum size of the Identity database in bytes.')
+@minValue(104857600)
+param sqlDatabaseMaxSizeBytes int = 2147483648
 
 @description('Controls whether the Azure SQL logical server accepts public network traffic. This topology requires Enabled until a private endpoint and VNet-integrated Container Apps environment are provisioned.')
 @allowed([
@@ -72,21 +97,52 @@ param identityMinReplicas int = 0
 @minValue(1)
 param identityMaxReplicas int = 1
 
+@description('Retention in days for the shared Log Analytics workspace that receives Container Apps logs.')
+@minValue(30)
+@maxValue(730)
+param logAnalyticsRetentionInDays int = 30
+
 var normalizedApplicationName = toLower(applicationName)
 var normalizedEnvironmentName = toLower(environmentName)
 var normalizedSuffix = toLower(resourceNameSuffix)
 var baseName = '${normalizedApplicationName}-${normalizedEnvironmentName}'
 var containerAppsEnvironmentName = 'cae-${baseName}'
-var identityName = 'ca-identity-${normalizedEnvironmentName}'
-var identityManagedIdentityName = 'id-identity-${normalizedEnvironmentName}'
+var logAnalyticsWorkspaceName = 'log-${baseName}'
+var identityName = 'ca-${baseName}-identity'
+var identityManagedIdentityName = 'id-${baseName}-identity'
 var sqlServerName = 'sql-${normalizedApplicationName}-${normalizedEnvironmentName}-${normalizedSuffix}'
-var identityDatabaseName = 'sqldb-identity-${normalizedEnvironmentName}'
+var identityDatabaseName = 'sqldb-${baseName}-identity'
+
+var commonTags = {
+  application: normalizedApplicationName
+  environment: normalizedEnvironmentName
+  'managed-by': 'bicep'
+}
+
+var sharedTags = union(commonTags, {
+  scope: 'shared'
+})
+
+var identityTags = union(commonTags, {
+  service: 'identity'
+})
+
+module logAnalyticsWorkspace 'modules/log-analytics-workspace.bicep' = {
+  name: 'log-analytics-workspace'
+  params: {
+    name: logAnalyticsWorkspaceName
+    location: location
+    retentionInDays: logAnalyticsRetentionInDays
+    tags: sharedTags
+  }
+}
 
 module containerAppsEnvironment 'modules/container-apps-environment.bicep' = {
   name: 'container-apps-environment'
   params: {
     name: containerAppsEnvironmentName
     location: location
+    logAnalyticsWorkspaceName: logAnalyticsWorkspace.outputs.name
     tags: sharedTags
   }
 }
@@ -124,6 +180,8 @@ module identityDatabase 'modules/database.bicep' = {
     skuName: sqlDatabaseSkuName
     skuTier: sqlDatabaseSkuTier
     skuCapacity: sqlDatabaseSkuCapacity
+    backupStorageRedundancy: sqlDatabaseBackupStorageRedundancy
+    maxSizeBytes: sqlDatabaseMaxSizeBytes
     tags: identityTags
   }
 }
@@ -147,21 +205,8 @@ module identityContainerApp 'modules/container-app.bicep' = {
   }
 }
 
-var commonTags = {
-  application: normalizedApplicationName
-  environment: normalizedEnvironmentName
-  'managed-by': 'bicep'
-}
-
-var sharedTags = union(commonTags, {
-  scope: 'shared'
-})
-
-var identityTags = union(commonTags, {
-  service: 'identity'
-})
-
 output containerAppsEnvironmentId string = containerAppsEnvironment.outputs.id
+output logAnalyticsWorkspaceId string = logAnalyticsWorkspace.outputs.id
 output identityContainerAppId string = identityContainerApp.outputs.id
 output identityContainerAppName string = identityContainerApp.outputs.name
 output identityManagedIdentityClientId string = identityManagedIdentity.outputs.clientId
