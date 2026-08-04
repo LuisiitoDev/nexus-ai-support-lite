@@ -19,11 +19,7 @@ param skuFamily string = 'Gen5'
 @description('Azure SQL database SKU capacity in vCores.')
 param skuCapacity int
 
-@description('What happens when the free monthly allowance is exhausted. AutoPause stops the database until the next month; BillOverUsage keeps it online and bills the overage.')
-@allowed([
-  'AutoPause'
-  'BillOverUsage'
-])
+@description('What happens when the free monthly allowance is exhausted. AutoPause stops the database until the next month.')
 param freeLimitExhaustionBehavior string
 
 @description('Maximum database size in bytes. The free offer caps data storage at 32 GB.')

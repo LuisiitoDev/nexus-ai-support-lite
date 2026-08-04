@@ -35,34 +35,17 @@ param sqlEntraAdministratorObjectId string
 ])
 param sqlEntraAdministratorPrincipalType string
 
-@description('Azure SQL database SKU name, supplied explicitly per environment.')
-@allowed([
-  'Basic'
-  'S0'
-  'S1'
-  'S2'
-  'GP_S_Gen5'
-  'GP_Gen5'
-])
+@description('Azure SQL database SKU name, supplied explicitly per environment. GP_S_Gen5 for the free offer.')
 param sqlDatabaseSkuName string
 
-@description('Azure SQL database SKU tier, supplied explicitly per environment.')
-@allowed([
-  'Basic'
-  'Standard'
-  'GeneralPurpose'
-])
+@description('Azure SQL database SKU tier, supplied explicitly per environment. GeneralPurpose for the free offer.')
 param sqlDatabaseSkuTier string
 
 @description('Azure SQL database SKU capacity, supplied explicitly per environment.')
 @minValue(0)
 param sqlDatabaseSkuCapacity int
 
-@description('Behaviour when the free monthly allowance is exhausted, supplied explicitly per environment.')
-@allowed([
-  'AutoPause'
-  'BillOverUsage'
-])
+@description('Behaviour when the free monthly allowance is exhausted. AutoPause stops the database until the next month.')
 param sqlDatabaseFreeLimitExhaustionBehavior string
 
 @description('Maximum size of the Identity database in bytes. The free offer caps data storage at 32 GB.')
