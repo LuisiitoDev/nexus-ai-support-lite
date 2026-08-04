@@ -1,0 +1,121 @@
+name: Infrastructure validation
+
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-validation.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  bicep:
+    name: Build and lint Bicep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: |
+          curl -sSLo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/bicep
+          bicep --version
+
+      - name: Build templates
+        run: |
+          for template in $(find infra -name '*.bicep'); do
+            echo "::group::$template"
+            bicep build "$template" --stdout > /dev/null
+            echo "::endgroup::"
+          done
+
+      - name: Lint templates
+        run: bicep lint infra/identity/main.bicep
+
+      # Deployment values come from repository configuration: non-sensitive
+      # settings from Actions variables, the service key from Actions secrets.
+      # No defaults are declared here, so a missing or misconfigured value fails
+      # the check rather than being silently substituted.
+      # An unset Actions variable expands to an empty string rather than being
+      # absent, so Bicep would report it as a type or @allowed violation instead
+      # of as missing configuration. Name the missing entries up front.
+      - name: Check required configuration
+        id: config
+        env:
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX }}
+          IDENTITY_CONTAINER_IMAGE: ${{ vars.IDENTITY_CONTAINER_IMAGE }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_LOGIN: ${{ vars.SQL_ENTRA_ADMINISTRATOR_LOGIN }}
+          SQL_ENTRA_ADMINISTRATOR_OBJECT_ID: ${{ vars.SQL_ENTRA_ADMINISTRATOR_OBJECT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE: ${{ vars.SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE }}
+          SQL_DATABASE_SKU_NAME: ${{ vars.SQL_DATABASE_SKU_NAME }}
+          SQL_DATABASE_SKU_TIER: ${{ vars.SQL_DATABASE_SKU_TIER }}
+          SQL_DATABASE_SKU_CAPACITY: ${{ vars.SQL_DATABASE_SKU_CAPACITY }}
+          SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR: ${{ vars.SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR }}
+          SQL_PUBLIC_NETWORK_ACCESS: ${{ vars.SQL_PUBLIC_NETWORK_ACCESS }}
+          SQL_ALLOW_AZURE_SERVICES: ${{ vars.SQL_ALLOW_AZURE_SERVICES }}
+          INTERNAL_SERVICE_KEY: ${{ secrets.INTERNAL_SERVICE_KEY }}
+        run: |
+          missing=()
+          for name in AZURE_LOCATION AZURE_RESOURCE_NAME_SUFFIX IDENTITY_CONTAINER_IMAGE \
+                      AZURE_TENANT_ID SQL_ENTRA_ADMINISTRATOR_LOGIN \
+                      SQL_ENTRA_ADMINISTRATOR_OBJECT_ID SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE \
+                      SQL_DATABASE_SKU_NAME SQL_DATABASE_SKU_TIER SQL_DATABASE_SKU_CAPACITY \
+                      SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR SQL_PUBLIC_NETWORK_ACCESS \
+                      SQL_ALLOW_AZURE_SERVICES INTERNAL_SERVICE_KEY; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+
+          if [ ${#missing[@]} -gt 0 ]; then
+            {
+              echo "### Parameter validation skipped"
+              echo
+              echo "Set these to enable it. All are repository Actions variables"
+              echo "except INTERNAL_SERVICE_KEY, which is a repository secret."
+              echo
+              for name in "${missing[@]}"; do
+                echo "- \`$name\`"
+              done
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "::warning::Skipping parameter validation: ${#missing[@]} configuration value(s) unset: ${missing[*]}"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "All required configuration values are present."
+          echo "configured=true" >> "$GITHUB_OUTPUT"
+
+      - name: Build parameter files
+        if: steps.config.outputs.configured == 'true'
+        env:
+          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+          AZURE_RESOURCE_NAME_SUFFIX: ${{ vars.AZURE_RESOURCE_NAME_SUFFIX }}
+          IDENTITY_CONTAINER_IMAGE: ${{ vars.IDENTITY_CONTAINER_IMAGE }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_LOGIN: ${{ vars.SQL_ENTRA_ADMINISTRATOR_LOGIN }}
+          SQL_ENTRA_ADMINISTRATOR_OBJECT_ID: ${{ vars.SQL_ENTRA_ADMINISTRATOR_OBJECT_ID }}
+          SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE: ${{ vars.SQL_ENTRA_ADMINISTRATOR_PRINCIPAL_TYPE }}
+          SQL_DATABASE_SKU_NAME: ${{ vars.SQL_DATABASE_SKU_NAME }}
+          SQL_DATABASE_SKU_TIER: ${{ vars.SQL_DATABASE_SKU_TIER }}
+          SQL_DATABASE_SKU_CAPACITY: ${{ vars.SQL_DATABASE_SKU_CAPACITY }}
+          SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR: ${{ vars.SQL_DATABASE_FREE_LIMIT_EXHAUSTION_BEHAVIOR }}
+          SQL_PUBLIC_NETWORK_ACCESS: ${{ vars.SQL_PUBLIC_NETWORK_ACCESS }}
+          SQL_ALLOW_AZURE_SERVICES: ${{ vars.SQL_ALLOW_AZURE_SERVICES }}
+          INTERNAL_SERVICE_KEY: ${{ secrets.INTERNAL_SERVICE_KEY }}
+        run: |
+          for params in $(find infra -name '*.bicepparam'); do
+            echo "::group::$params"
+            bicep build-params "$params" --stdout > /dev/null
+            echo "::endgroup::"
+          done
