@@ -59,7 +59,7 @@ jobs:
           SQL_DATABASE_BACKUP_STORAGE_REDUNDANCY: Local
           SQL_PUBLIC_NETWORK_ACCESS: Enabled
           SQL_ALLOW_AZURE_SERVICES: 'true'
-          IDENTITY_SERVICE_KEY: ci-placeholder-key-0000000000000000
+          INTERNAL_SERVICE_KEY: ci-placeholder-key-0000000000000000
         run: |
           for params in $(find infra -name '*.bicepparam'); do
             echo "::group::$params"

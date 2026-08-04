@@ -110,6 +110,12 @@ pipeline.
 - No container image is published yet. `src/Services/Identity/NexusSupport.Identity.Api/Dockerfile`
   is still a placeholder, so `IDENTITY_CONTAINER_IMAGE` has nothing to point at
   until the image build and publish pipeline lands.
+- Flipping `SQL_ALLOW_AZURE_SERVICES` from `true` to `false` does not by itself
+  revoke access. `az deployment group create` uses incremental mode, which omits
+  the conditional resource but does not delete the already-created
+  `AllowAllWindowsAzureIps` rule. Delete it explicitly when turning the flag off
+  (`az sql server firewall-rule delete --name AllowAllWindowsAzureIps ...`),
+  until the deployment pipeline manages deletions.
 - `SQL_ALLOW_AZURE_SERVICES=true` creates the `0.0.0.0` firewall rule, which
   admits traffic from any Azure tenant, not only this one. Microsoft Entra-only
   authentication is the actual access control, which makes this acceptable for
