@@ -25,6 +25,7 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/Services/" />
   <Folder Name="/tests/Services/Identity/">
+    <Project Path="tests/Services/Identity/NexusSupport.Identity.Api.Tests/NexusSupport.Identity.Api.Tests.csproj" />
     <Project Path="tests/Services/Identity/NexusSupport.Identity.Application.Tests/NexusSupport.Identity.Application.Tests.csproj" />
     <Project Path="tests/Services/Identity/NexusSupport.Identity.Infrastructure.Tests/NexusSupport.Identity.Infrastructure.Tests.csproj" />
   </Folder>

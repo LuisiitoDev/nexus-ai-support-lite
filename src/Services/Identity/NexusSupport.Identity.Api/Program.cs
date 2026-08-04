@@ -1,5 +1,6 @@
 using NexusSupport.Identity.Api.Constants;
 using NexusSupport.Identity.Api.Endpoints;
+using NexusSupport.Identity.Api.Security;
 using NexusSupport.Identity.Application.Extensions;
 using NexusSupport.Identity.Infrastructure.Extensions;
 using Scalar.AspNetCore;
@@ -26,6 +27,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Identity is not publicly reachable (ADR-002): every "/api" request must carry the Gateway's
+// internal shared key. "/health" stays open for the container platform's liveness probe.
+app.UseMiddleware<InternalServiceKeyMiddleware>();
 
 app.MapHealthChecks("/health");
 

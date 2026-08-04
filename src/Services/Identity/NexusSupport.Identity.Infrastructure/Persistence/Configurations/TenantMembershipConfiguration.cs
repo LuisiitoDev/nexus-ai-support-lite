@@ -24,6 +24,11 @@ internal sealed class TenantMembershipConfiguration : IEntityTypeConfiguration<T
             .HasColumnName("UserId")
             .IsRequired();
 
+        // ADR-002 / DOMAIN_BOUNDARIES: a local user is scoped to exactly one Nexus organization,
+        // so a user can have at most one membership regardless of tenant.
+        builder.HasIndex(t => t.UserId)
+            .IsUnique();
+
         builder.Property(t => t.Status)
             .HasColumnName("Status")
             .IsRequired();
