@@ -55,9 +55,9 @@ param sqlPublicNetworkAccess string
 param allowAzureServicesToAccessSql bool
 
 @secure()
-@description('Shared secret required in the X-Identity-Service-Key header for calls to the Identity API.')
+@description('Shared secret required in the X-Internal-Key header for calls to the Identity API.')
 @minLength(32)
-param identityServiceKey string
+param internalServiceKey string
 
 @description('Container port exposed by the Identity API image.')
 @minValue(1)
@@ -142,7 +142,7 @@ module identityContainerApp 'modules/container-app.bicep' = {
     maxReplicas: identityMaxReplicas
     sqlServerFullyQualifiedDomainName: sqlServer.outputs.fullyQualifiedDomainName
     databaseName: identityDatabase.outputs.name
-    identityServiceKey: identityServiceKey
+    internalServiceKey: internalServiceKey
     tags: identityTags
   }
 }

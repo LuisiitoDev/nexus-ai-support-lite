@@ -33,7 +33,7 @@ param databaseName string
 
 @secure()
 @description('Shared secret used to authenticate callers of the Identity API.')
-param identityServiceKey string
+param internalServiceKey string
 
 @description('Common resource tags.')
 param tags object
@@ -56,8 +56,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       activeRevisionsMode: 'Single'
       secrets: [
         {
-          name: 'identity-service-key'
-          value: identityServiceKey
+          name: 'internal-service-key'
+          value: internalServiceKey
         }
       ]
       ingress: {
@@ -86,8 +86,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               value: identityConnectionString
             }
             {
-              name: 'IdentityServiceKey'
-              secretRef: 'identity-service-key'
+              name: 'InternalServiceKey'
+              secretRef: 'internal-service-key'
             }
           ]
           resources: {

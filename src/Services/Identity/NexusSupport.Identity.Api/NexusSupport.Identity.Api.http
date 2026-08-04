@@ -1,6 +1,14 @@
 @NexusSupport.Identity.Api_HostAddress = http://localhost:5274
 
-GET {{NexusSupport.Identity.Api_HostAddress}}/weatherforecast/
+GET {{NexusSupport.Identity.Api_HostAddress}}/health
 Accept: application/json
+
+###
+
+# "/api" routes require the Gateway's internal shared key (ADR-002). The Development
+# environment's placeholder value lives in appsettings.Development.json.
+GET {{NexusSupport.Identity.Api_HostAddress}}/api/tenants
+Accept: application/json
+X-Internal-Key: identity-local-development-only-key
 
 ###

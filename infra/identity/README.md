@@ -24,7 +24,7 @@ passwordless Azure SQL connection string. `AZURE_CLIENT_ID` selects the attached
 user-assigned identity for `Active Directory Default` authentication.
 The service key is stored as a Container Apps secret and exposed to the container
 through a secret reference. Callers must send it in the
-`X-Identity-Service-Key` header; internal ingress is a network boundary, not an
+`X-Internal-Key` header; internal ingress is a network boundary, not an
 authentication mechanism.
 
 ## Deployment inputs
@@ -49,7 +49,7 @@ be committed.
 | `SQL_DATABASE_SKU_CAPACITY` | Explicit numeric SKU capacity for the environment. |
 | `SQL_PUBLIC_NETWORK_ACCESS` | Must be `Enabled` for the current topology. `Disabled` is rejected until the Container Apps environment has VNet integration and SQL has a private endpoint and private DNS. |
 | `SQL_ALLOW_AZURE_SERVICES` | Explicitly `true` or `false`; `true` creates Azure SQL's `0.0.0.0` firewall rule. |
-| `IDENTITY_SERVICE_KEY` | Secret of at least 32 characters that trusted internal callers send in the `X-Identity-Service-Key` header. |
+| `INTERNAL_SERVICE_KEY` | Secret of at least 32 characters that trusted internal callers send in the `X-Internal-Key` header. |
 
 No default network-access or database-SKU decision is embedded in the template.
 Those architecture choices must be selected per environment. The current
