@@ -31,6 +31,10 @@ param sqlServerFullyQualifiedDomainName string
 @description('Identity database name.')
 param databaseName string
 
+@secure()
+@description('Shared secret used to authenticate callers of the Identity API.')
+param identityServiceKey string
+
 @description('Common resource tags.')
 param tags object
 
@@ -50,6 +54,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
     environmentId: containerAppsEnvironmentId
     configuration: {
       activeRevisionsMode: 'Single'
+      secrets: [
+        {
+          name: 'identity-service-key'
+          value: identityServiceKey
+        }
+      ]
       ingress: {
         external: false
         allowInsecure: false
@@ -74,6 +84,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'ConnectionStrings__NexusIdentity'
               value: identityConnectionString
+            }
+            {
+              name: 'IdentityServiceKey'
+              secretRef: 'identity-service-key'
             }
           ]
           resources: {

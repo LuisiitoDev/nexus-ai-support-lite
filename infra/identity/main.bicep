@@ -45,15 +45,19 @@ param sqlDatabaseSkuTier string
 @minValue(0)
 param sqlDatabaseSkuCapacity int
 
-@description('Controls whether the Azure SQL logical server accepts public network traffic.')
+@description('Controls whether the Azure SQL logical server accepts public network traffic. This topology requires Enabled until a private endpoint and VNet-integrated Container Apps environment are provisioned.')
 @allowed([
   'Enabled'
-  'Disabled'
 ])
 param sqlPublicNetworkAccess string
 
 @description('Explicitly allows Azure-hosted resources to reach SQL through its public endpoint. This creates the 0.0.0.0 firewall rule.')
 param allowAzureServicesToAccessSql bool
+
+@secure()
+@description('Shared secret required in the X-Identity-Service-Key header for calls to the Identity API.')
+@minLength(32)
+param identityServiceKey string
 
 @description('Container port exposed by the Identity API image.')
 @minValue(1)
@@ -138,6 +142,7 @@ module identityContainerApp 'modules/container-app.bicep' = {
     maxReplicas: identityMaxReplicas
     sqlServerFullyQualifiedDomainName: sqlServer.outputs.fullyQualifiedDomainName
     databaseName: identityDatabase.outputs.name
+    identityServiceKey: identityServiceKey
     tags: identityTags
   }
 }
